@@ -8,8 +8,9 @@ export interface MatchRecord {
         rating: number;
         tags: string[];
         url: string;
+        index: string;
     };
-    result: 'WIN' | 'LOSS';
+    result: 'WIN' | 'LOSS' | 'DRAW';
     ratingChange: number;
 }
 
@@ -51,10 +52,10 @@ export function recordMatchResult(
     opponent: string,
     opponentRating: number,
     problem: MatchRecord['problem'],
-    result: 'WIN' | 'LOSS'
+    result: 'WIN' | 'LOSS' | 'DRAW'
 ): UserStats {
     const stats = getStats();
-    const score = result === 'WIN' ? 1 : 0;
+    const score = result === 'WIN' ? 1 : result === 'DRAW' ? 0.5 : 0;
     const newRating = calculateNewRating(stats.rating, opponentRating, score);
     const change = newRating - stats.rating;
 

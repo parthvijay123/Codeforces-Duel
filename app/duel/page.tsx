@@ -277,7 +277,8 @@ export default function DuelPage() {
                 name: problem.name,
                 rating: problem.rating || 0,
                 tags: problem.tags,
-                url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`
+                url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`,
+                index: problem.index
             };
             // Record LOSS for me
             recordMatchResult(opponent, opponentRating, ratingProblem, 'LOSS');

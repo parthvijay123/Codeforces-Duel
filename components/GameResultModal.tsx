@@ -22,7 +22,8 @@ export function GameResultModal({ result, opponent, opponentRating, problem, onC
             name: problem.name,
             rating: problem.rating || 0,
             tags: problem.tags,
-            url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`
+            url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`,
+            index: problem.index
         };
 
         const newStats = recordMatchResult(opponent, opponentRating, ratingProblem, result);
