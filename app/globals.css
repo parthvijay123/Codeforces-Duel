@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+:root {
+  --background: #030712;
+  --foreground: #f9fafb;
+}
+
+/* @apply rules moved to layout.tsx to avoid v4 syntax errors with unknown utilities during initial build */
