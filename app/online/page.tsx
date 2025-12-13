@@ -2,43 +2,32 @@
 
 import { useState } from 'react';
 import { useLobbyRegistry } from '@/hooks/useLobbyRegistry';
-import { Users, Sword, Wifi, Server } from 'lucide-react';
+import { Users, Sword } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import ProtectedRoute from '@/components/ProtectedRoute'; // Authenticated users only
+import { useUser } from '@/hooks/useUser';
 
 export default function OnlinePage() {
-    const [handle, setHandle] = useState('');
-    const [registered, setRegistered] = useState(false);
+    return (
+        <ProtectedRoute>
+            <OnlineContent />
+        </ProtectedRoute>
+    );
+}
 
-    // We only init hook when registered to avoid spamming connections
-    const { onlineUsers, status, isHost, sendInvite, incomingInvite } = useLobbyRegistry(registered ? handle : '', 'ONLINE_PAGE');
+function OnlineContent() {
+    const { user } = useUser();
+    const handle = user?.codeforcesHandle || '';
     const router = useRouter();
 
-    const joinLobby = () => {
-        if (handle.trim()) setRegistered(true);
-    };
+    const { onlineUsers, status, isHost, sendInvite, incomingInvite } = useLobbyRegistry(handle, 'ONLINE_PAGE');
 
     const challenge = (opp: string) => {
         router.push(`/duel?myHandle=${handle}&opponent=${opp}&autoChallenge=true`);
     };
 
     const handleInvite = (opp: string) => {
-        // Send invite for them to join duel
         sendInvite(opp);
-        // We go to duel page to wait for them (or we can wait here? Better to go to duel page)
-        // But if they reject? 
-        // Let's go to duel page, but maybe with a special param "waitingFor=opp"?
-        // Simpler: Just go to duel page as if challenging.
-        // But if we go to duel page, we leave ONLINE_PAGE registry.
-        // Then when they accept, they go to duel page.
-        // We meet there.
-        // Wait, if I leave ONLINE_PAGE, I can't receive their accept?
-        // Actually, they don't 'accept' back to registry. They 'accept' by going to URL provided.
-        // So:
-        // 1. I send Invite "Come to duel with me".
-        // 2. I go to duel page.
-        // 3. They see invite.
-        // 4. They Click accept -> go to duel page.
-        // 5. Duel Auto-Matchmaking picks up.
         router.push(`/duel?myHandle=${handle}&opponent=${opp}&autoChallenge=true`);
     };
 
@@ -47,36 +36,6 @@ export default function OnlinePage() {
             router.push(`/duel?myHandle=${handle}&opponent=${incomingInvite.from}&autoChallenge=true`);
         }
     };
-
-    if (!registered) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[80vh] p-8">
-                <div className="bg-gray-900/50 p-12 rounded-3xl border border-gray-800 text-center max-w-lg w-full">
-                    <div className="mx-auto w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-6 text-green-400">
-                        <Users className="w-10 h-10" />
-                    </div>
-                    <h1 className="text-4xl font-black mb-4">Online Lobby</h1>
-                    <p className="text-gray-400 mb-8">See who's actively looking for a duel.</p>
-
-                    <input
-                        type="text"
-                        placeholder="Your Handle"
-                        value={handle}
-                        onChange={e => setHandle(e.target.value)}
-                        className="w-full bg-black/40 border border-gray-700 p-4 rounded-xl text-center text-lg mb-6 focus:border-green-500 outline-none transition-colors"
-                    />
-
-                    <button
-                        onClick={joinLobby}
-                        disabled={!handle}
-                        className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-xl text-xl transition-all disabled:opacity-50"
-                    >
-                        Join List
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="max-w-4xl mx-auto p-8 min-h-[90vh] relative">
@@ -111,6 +70,7 @@ export default function OnlinePage() {
                         Status: <span className={`font-bold ${status === 'CONNECTED' || status === 'HOSTING' ? 'text-green-400' : 'text-yellow-500'}`}>{status}</span>
                         {isHost && <span className="ml-2 text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30">HOST NODE</span>}
                     </p>
+                    <p className="text-xs text-gray-500 mt-1">Logged in as <span className="text-white font-bold">{handle}</span></p>
                 </div>
                 <div className="text-right">
                     <p className="text-2xl font-bold">{onlineUsers.length}</p>

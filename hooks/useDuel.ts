@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import Peer, { DataConnection } from 'peerjs';
+import { io, Socket } from 'socket.io-client';
 import { Problem } from '@/lib/codeforces';
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
 type DuelState = 'LOBBY' | 'CHALLENGING' | 'WAITING' | 'IN_GAME';
 
@@ -12,46 +14,48 @@ export interface DuelMessage {
 }
 
 export function useDuel(myHandle: string) {
-    const [peer, setPeer] = useState<Peer | null>(null);
-    const [connection, setConnection] = useState<DataConnection | null>(null); // Main opponent connection
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+
     const [mode, setMode] = useState<'SOLO' | 'TEAM'>('SOLO');
     const [isCaptain, setIsCaptain] = useState(false);
-    const [teamMembers, setTeamMembers] = useState<{ handle: string, conn: DataConnection }[]>([]);
+    const [teamMembers, setTeamMembers] = useState<{ handle: string }[]>([]);
 
     const [state, setState] = useState<DuelState>('LOBBY');
     const [opponent, setOpponent] = useState<string | null>(null);
-    const [incomingChallenge, setIncomingChallenge] = useState<string | null>(null);
+    const [incomingChallenge, setIncomingChallenge] = useState<string | null>(null); // Handle of challenger
+    const [incomingChallengeData, setIncomingChallengeData] = useState<any>(null); // Store socketId/rating
+
     const [problem, setProblem] = useState<Problem | null>(null);
     const [opponentStatus, setOpponentStatus] = useState<'idle' | 'solved' | 'failed' | 'left'>('idle');
-    const [isPeerReady, setIsPeerReady] = useState(false);
+    const [isPeerReady, setIsPeerReady] = useState(false); // Map to Socket Connected
 
     const [matchParams, setMatchParams] = useState<{ rating: number, agreed: boolean, proposer: boolean } | null>(null);
 
+    const [opponentRating, setOpponentRating] = useState<number>(1200);
+    const [problemQueue, setProblemQueue] = useState<Problem[]>([]);
+    const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
+    const [pendingProblem, setPendingProblem] = useState<Problem | null>(null);
+
+    const [myScore, setMyScore] = useState(0);
+    const [opponentScore, setOpponentScore] = useState(0);
+
+    // Refs for closures
+    const stateRef = useRef(state);
+    const activeRoomIdRef = useRef(activeRoomId);
+
+    useEffect(() => { stateRef.current = state; }, [state]);
+    useEffect(() => { activeRoomIdRef.current = activeRoomId; }, [activeRoomId]);
+
     const reset = () => {
-        if (connection) {
-            try {
-                connection.send({ type: 'LEAVE' });
-            } catch (e) { console.error("Could not send leave", e); }
-            try {
-                connection.close();
-            } catch (e) { console.error("Could not close connection", e); }
+        if (socket && activeRoomId) {
+            socket.emit('room_message', { roomId: activeRoomId, type: 'LEAVE' });
+            socket.emit('leave_room', activeRoomId);
         }
-        // If captain, close team connections? Or keep them?
-        // Usually reset means reset MATCH, not Lobby.
-        // But reset() is used for LogOut too.
-        // Let's check context. reset() is used for "LogOut" button and "Play Again" (which resets match).
-        // If "Play Again", we want to keep team.
-        // If "LogOut" (handled by separate button potentially?), we want to leave everything.
-        // Current 'reset' is used for both. We might need a hardReset vs softReset.
-        // For now, let's assume reset clears everything including team for safety, 
-        // OR we can make it smart based on mode.
-        // Let's clear team members for now to be safe, user can reform team.
-        teamMembers.forEach(m => {
-            try { m.conn.close(); } catch (e) { }
-        });
-        setTeamMembers([]);
-        setConnection(null);
+
+        setActiveRoomId(null);
         setIncomingChallenge(null);
+        setIncomingChallengeData(null);
         setOpponent(null);
         setProblem(null);
         setState('LOBBY');
@@ -62,169 +66,93 @@ export function useDuel(myHandle: string) {
         setPendingProblem(null);
         setMyScore(0);
         setOpponentScore(0);
-        // Do not reset mode or isCaptain automatically? Users might want to stay in team mode.
-        // But if we clear teamMembers, we kind of reset the team state.
-        // Let's keep mode but reset team members implies disbanded.
+
+        // Clear team?
+        setTeamMembers([]);
     };
 
-    const createPeerId = (handle: string) => `cf-duel-${handle.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-
-    // Initialize Peer
+    // Initialize Socket
     useEffect(() => {
         if (!myHandle) return;
 
-        console.log("Initializing Peer for handle:", myHandle);
-        const newPeer = new Peer(createPeerId(myHandle), {
-            debug: 2,
-        });
+        console.log("Initializing Socket for handle:", myHandle);
+        const newSocket = io(SOCKET_URL);
+        setSocket(newSocket);
 
-        newPeer.on('open', (id) => {
-            console.log('My peer ID is: ' + id);
-            setPeer(newPeer);
+        newSocket.on('connect', () => {
+            console.log('My socket ID is:', newSocket.id);
             setIsPeerReady(true);
+            newSocket.emit('register', { handle: myHandle, location: 'DUEL_LOBBY' });
         });
 
-        newPeer.on('connection', (conn) => {
-            console.log('Incoming connection from:', conn.peer);
-
-            conn.on('data', (data: any) => {
-                handleMessage(data, conn);
-            });
-
-            // Wait for open before handling
-            conn.on('open', () => {
-                // Connection established
-            });
+        newSocket.on('disconnect', () => {
+            setIsPeerReady(false);
         });
 
-        newPeer.on('error', (err) => {
-            console.error("Peer error:", err);
-            if (err.type === 'unavailable-id') {
-                alert("You are already connected in another tab or the connection is stuck! Please close other tabs and reload.");
-                setIsPeerReady(false);
-            } else if (err.type === 'peer-unavailable') {
-                alert("User not found! Make sure they are online and entered the LOBBY with this handle.");
-                reset();
-            } else if (err.type === 'network') {
-                alert("Network error. Please check your internet connection.");
+        // --- Challenge Events ---
+        newSocket.on('challenge_received', (data: any) => {
+            // data: { from, fromSocketId, rating }
+            if (stateRef.current === 'LOBBY' || stateRef.current === 'WAITING') {
+                setIncomingChallenge(data.from);
+                setIncomingChallengeData(data);
+            } else {
+                // Auto-reject if busy
+                newSocket.emit('challenge_response', { accepted: false, targetSocketId: data.fromSocketId });
             }
         });
 
+        newSocket.on('challenge_accepted', (data: any) => {
+            // data: { roomId, opponent }
+            console.log("Challenge Accepted!", data);
+            setOpponent(data.opponent);
+            setActiveRoomId(data.roomId);
+            setState('WAITING');
+            newSocket.emit('join_room', data.roomId);
+        });
+
+        newSocket.on('challenge_rejected', (data: any) => {
+            alert(`${data.from} rejected your challenge.`);
+            setState('LOBBY');
+        });
+
+        // --- Team Events ---
+        newSocket.on('team_member_joined', (data: any) => {
+            console.log("Member joined team:", data.handle);
+            setTeamMembers(prev => [...prev, { handle: data.handle }]);
+        });
+
+
+        // --- Generic Room Messages (Game Logic) ---
+        newSocket.on('room_message', (msg: DuelMessage) => {
+            handleMessage(msg);
+        });
+
+        newSocket.on('game_started', (data: any) => {
+            // Alias for START message if sent via specific event
+            handleMessage({ type: 'START', payload: data });
+        });
+
+        newSocket.on('opponent_update', (data: any) => {
+            handleMessage({ type: 'UPDATE', payload: data });
+        });
+
         return () => {
-            newPeer.destroy();
+            newSocket.disconnect();
             setIsPeerReady(false);
         };
     }, [myHandle]);
 
-    const [opponentRating, setOpponentRating] = useState<number>(1200);
-    const [problemQueue, setProblemQueue] = useState<Problem[]>([]);
-    const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
-    const [pendingProblem, setPendingProblem] = useState<Problem | null>(null);
 
-    const [myScore, setMyScore] = useState(0);
-    const [opponentScore, setOpponentScore] = useState(0);
-
-    // State Ref Pattern to solve Stale Closure in handleMessage
-    const stateRef = useRef(state);
-    const connectionRef = useRef(connection);
-    const problemQueueRef = useRef(problemQueue);
-    const modeRef = useRef(mode);
-    const isCaptainRef = useRef(isCaptain);
-    const teamMembersRef = useRef(teamMembers);
-    const incomingChallengeRef = useRef(incomingChallenge);
-    const matchParamsRef = useRef(matchParams);
-
-    // Update refs whenever state changes
-    useEffect(() => { stateRef.current = state; }, [state]);
-    useEffect(() => { connectionRef.current = connection; }, [connection]);
-    useEffect(() => { problemQueueRef.current = problemQueue; }, [problemQueue]);
-    useEffect(() => { modeRef.current = mode; }, [mode]);
-    useEffect(() => { isCaptainRef.current = isCaptain; }, [isCaptain]);
-    useEffect(() => { teamMembersRef.current = teamMembers; }, [teamMembers]);
-    useEffect(() => { incomingChallengeRef.current = incomingChallenge; }, [incomingChallenge]);
-    useEffect(() => { matchParamsRef.current = matchParams; }, [matchParams]);
-
-    // ... (createPeerId) ...
-
-    // Trigger update ref for callback
-    // Actually simpler: define handleMessage inside useEffect [peer]? 
-    // No, duplicate logic.
-    // Refs are best status quo.
-
-    // ... (useEffect init) ...
-    // Note: handleMessage call in useEffect will use the closures above. 
-    // BUT handleMessage ITSELF is defined here.
-    // So handleMessage is recreated on every render.
-    // BUT the listener `conn.on('data', ...)` binds the VERSION of handleMessage available at init time!
-    // So we MUST use refs inside handleMessage.
-
-    // Helper to broadcast message to all connected team members
-    const teamBroadcast = (msg: DuelMessage) => {
-        if (!isCaptainRef.current) return;
-        teamMembersRef.current.forEach(m => {
-            try {
-                if (m.conn.open) m.conn.send(msg);
-            } catch (e) { console.error("Broadcast error", e); }
-        });
-    };
-
-    const handleMessage = (msg: DuelMessage, conn: DataConnection) => {
+    const handleMessage = (msg: DuelMessage) => {
         console.log("Received:", msg);
-        const oppHandle = conn.peer.replace('cf-duel-', '');
 
+        // Map payloads if needed
         if (msg.payload?.playerRating) {
             setOpponentRating(msg.payload.playerRating);
         }
 
-        const currentState = stateRef.current;
-        const currentMode = modeRef.current;
-        const currentIsCaptain = isCaptainRef.current;
-
         switch (msg.type) {
-            case 'CHALLENGE':
-                if (currentState === 'LOBBY' || currentState === 'WAITING') {
-                    setIncomingChallenge(oppHandle);
-                    setConnection(conn);
-                } else {
-                    conn.send({ type: 'REJECT' });
-                }
-                break;
-            case 'ACCEPT':
-                setOpponent(oppHandle);
-                setConnection(conn);
-                setState('WAITING');
-                break;
-            case 'REJECT':
-                alert(`${oppHandle} rejected your challenge.`);
-                setConnection(null);
-                setState('LOBBY');
-                break;
-            case 'PROPOSE':
-                setMatchParams({ rating: msg.payload.rating, agreed: false, proposer: false });
-                break;
-            case 'AGREE':
-                // Need previous params? Use functional update or ref.
-                setMatchParams(prev => prev ? { ...prev, agreed: true } : null);
-                break;
-            case 'REJECT_PROPOSAL':
-                setMatchParams(null);
-                alert("Opponent rejected the rating proposal.");
-                break;
-            case 'PROPOSE_PROBLEM':
-                console.log("Opponent proposed problem:", msg.payload.problem);
-                setPendingProblem(msg.payload.problem);
-                break;
-            case 'ACCEPT_PROBLEM':
-                console.log("Problem Accepted:", msg.payload.problem);
-                setProblemQueue(prev => [...prev, msg.payload.problem]);
-                setPendingProblem(null);
-                break;
-            case 'REJECT_PROBLEM':
-                alert("Opponent rejected the problem.");
-                setPendingProblem(null);
-                break;
             case 'START':
-                // Received by Opponent Captain OR Team Member
                 if (msg.payload.queue) {
                     setProblemQueue(msg.payload.queue);
                 }
@@ -233,70 +161,49 @@ export function useDuel(myHandle: string) {
                 }
                 setCurrentProblemIndex(0);
                 setProblem(msg.payload.queue ? msg.payload.queue[0] : msg.payload.problem);
-
-                // If I am a Team Member, 'oppHandle' is my Captain.
-                // But logically in the UI, I might want to see 'Team Duel' or similar?
-                // For now, Member sees Captain as "Opponent" in state, but UI can show "Captain".
-                if (currentMode === 'TEAM' && !currentIsCaptain) {
-                    setOpponent(oppHandle); // This is Captain
-                    setConnection(conn);    // Connection to Captain
-                } else {
-                    setOpponent(oppHandle); // Real Opponent
-                    setConnection(conn);
-                }
-
                 setState('IN_GAME');
                 setIncomingChallenge(null);
                 setMatchParams(null);
                 setOpponentStatus('idle');
                 setMyScore(0);
                 setOpponentScore(0);
-
-                // If I am Captain, Relay START to Team
-                if (currentMode === 'TEAM' && currentIsCaptain) {
-                    teamBroadcast(msg);
-                }
                 break;
+
+            case 'PROPOSE':
+                setMatchParams({ rating: msg.payload.rating, agreed: false, proposer: false });
+                break;
+
+            case 'AGREE':
+                setMatchParams(prev => prev ? { ...prev, agreed: true } : null);
+                break;
+
+            case 'REJECT_PROPOSAL':
+                setMatchParams(null);
+                alert("Opponent rejected the rating proposal.");
+                break;
+
+            case 'PROPOSE_PROBLEM':
+                setPendingProblem(msg.payload.problem);
+                break;
+
+            case 'ACCEPT_PROBLEM':
+                setProblemQueue(prev => [...prev, msg.payload.problem]);
+                setPendingProblem(null);
+                break;
+
+            case 'REJECT_PROBLEM':
+                alert("Opponent rejected the problem.");
+                setPendingProblem(null);
+                break;
+
             case 'NEXT_PROBLEM':
                 const nextIdx = msg.payload.index;
                 setCurrentProblemIndex(nextIdx);
-                // SAFE access via Ref
-                setProblem(problemQueueRef.current[nextIdx] || null);
+                setProblem(msg.payload.queue ? msg.payload.queue[nextIdx] : null);
                 setOpponentStatus('idle');
-                // If Captain, relay to team
-                if (currentMode === 'TEAM' && currentIsCaptain) {
-                    teamBroadcast(msg);
-                }
                 break;
-            case 'JOIN_TEAM':
-                if (currentMode === 'TEAM') {
-                    const memberHandle = msg.payload.handle;
-                    console.log("Adding team member:", memberHandle);
-                    setTeamMembers(prev => {
-                        // Avoid duplicates
-                        if (prev.find(m => m.handle === memberHandle)) return prev;
-                        return [...prev, { handle: memberHandle, conn }];
-                    });
-                }
-                break;
-            case 'TEAM_UPDATE':
-                // Received by Captain from Member
-                if (msg.payload.subType === 'SOLVED') {
-                    // Member solved a problem. Increment Team Score.
-                    setMyScore(prev => prev + 1);
 
-                    // Relay to Opponent Captain (The real opponent)
-                    const activeOpponentConn = connectionRef.current;
-                    if (activeOpponentConn) {
-                        activeOpponentConn.send({ type: 'UPDATE', payload: { status: 'solved' } });
-                    }
-
-                    // Optional: Broadcast to team that someone solved it? 
-                    // Not crucial for MVP
-                }
-                break;
             case 'UPDATE':
-                // Received from Opponent (Captain or Solo)
                 if (msg.payload.status) {
                     setOpponentStatus(msg.payload.status);
                     if (msg.payload.status === 'solved') {
@@ -304,10 +211,9 @@ export function useDuel(myHandle: string) {
                     }
                 }
                 break;
+
             case 'LEAVE':
-                // Use latest state to decide logic
-                if (currentState === 'IN_GAME') {
-                    setConnection(null);
+                if (stateRef.current === 'IN_GAME') {
                     setOpponentStatus('left');
                 } else {
                     reset();
@@ -316,120 +222,81 @@ export function useDuel(myHandle: string) {
         }
     };
 
-    // ... (rest of function)
 
-    // Helper to join a team
-    const joinTeam = (captainHandle: string) => {
-        if (!peer || !isPeerReady) return;
-        setMode('TEAM');
-        setIsCaptain(false); // Member
-
-        const conn = peer.connect(createPeerId(captainHandle));
-        conn.on('open', () => {
-            console.log("Connected to Captain:", captainHandle);
-            conn.send({ type: 'JOIN_TEAM', payload: { handle: myHandle } });
-            setConnection(conn); // Member treats Captain as "Connection" approximately? 
-            // profound architectural question:
-            // If Member treats Captain as `connection`, then `startMatch` etc might work if Captain relays `START`.
-            // Yes, let's treat Captain as the "Opponent" from Member's perspective for state flow, 
-            // but UI needs to know it's "Captain".
-            setOpponent(captainHandle); // Opponent UI will show Captain Name
-            setState('WAITING'); // Waiting in lobby
-        });
-        conn.on('data', (data) => handleMessage(data as DuelMessage, conn));
-    };
-
+    // Actions
     const challengeUser = (targetHandle: string) => {
-        if (!peer || !isPeerReady) {
-            alert("Not connected. Wait.");
-            return;
-        }
-        if (createPeerId(targetHandle) === peer.id) {
+        if (!socket) return;
+        if (targetHandle === myHandle) {
             alert("Cannot challenge self.");
             return;
         }
 
         setState('CHALLENGING');
-        try {
-            const conn = peer.connect(createPeerId(targetHandle));
-            conn.on('open', () => {
-                const stats = JSON.parse(localStorage.getItem('cf_duel_stats_v1') || '{"rating":1200}');
-                conn.send({ type: 'CHALLENGE', payload: { playerRating: stats.rating } });
-                setConnection(conn);
-            });
-            conn.on('data', (data: any) => handleMessage(data, conn));
-            conn.on('error', (err) => { reset(); });
-            conn.on('close', () => { reset(); });
-        } catch (e) {
-            reset();
-        }
+        const stats = JSON.parse(localStorage.getItem('cf_duel_stats_v1') || '{"rating":1200}');
+        socket.emit('challenge_request', { targetHandle, rating: stats.rating });
     };
 
     const acceptChallenge = () => {
-        if (connection && incomingChallenge) {
-            connection.send({ type: 'ACCEPT' });
-            setOpponent(incomingChallenge);
-            setState('WAITING');
-            setIncomingChallenge(null);
-        }
+        if (!socket || !incomingChallengeData) return;
+
+        socket.emit('challenge_response', {
+            accepted: true,
+            targetSocketId: incomingChallengeData.fromSocketId
+        });
+        setIncomingChallenge(null);
+        setIncomingChallengeData(null);
     };
 
     const rejectChallenge = () => {
-        if (connection) {
-            connection.send({ type: 'REJECT' });
-            setIncomingChallenge(null);
-            setConnection(null);
+        if (!socket || !incomingChallengeData) return;
+        socket.emit('challenge_response', {
+            accepted: false,
+            targetSocketId: incomingChallengeData.fromSocketId
+        });
+        setIncomingChallenge(null);
+        setIncomingChallengeData(null);
+    };
+
+    const sendToRoom = (msg: DuelMessage) => {
+        if (socket && activeRoomId) {
+            socket.emit('room_message', { roomId: activeRoomId, ...msg });
         }
     };
 
     const proposeRating = (rating: number) => {
-        if (connection) {
-            connection.send({ type: 'PROPOSE', payload: { rating } });
-            setMatchParams({ rating, agreed: false, proposer: true });
-        }
+        sendToRoom({ type: 'PROPOSE', payload: { rating } });
+        setMatchParams({ rating, agreed: false, proposer: true });
     };
 
     const acceptProposal = () => {
-        if (connection && matchParams) {
-            connection.send({ type: 'AGREE' });
-            setMatchParams({ ...matchParams, agreed: true });
-        }
+        sendToRoom({ type: 'AGREE' });
+        setMatchParams({ ...matchParams!, agreed: true });
     };
 
     const rejectProposal = () => {
-        if (connection) {
-            connection.send({ type: 'REJECT_PROPOSAL' });
-            setMatchParams(null);
-        }
+        sendToRoom({ type: 'REJECT_PROPOSAL' });
+        setMatchParams(null);
     };
 
     const sendUpdate = (status: 'solved' | 'failed') => {
-        // If I am Team Member, send TEAM_UPDATE to Captain
-        if (mode === 'TEAM' && !isCaptain) {
-            if (connection && status === 'solved') {
-                connection.send({ type: 'TEAM_UPDATE', payload: { subType: 'SOLVED', handle: myHandle } });
-                // I also increment my own score locally to see "Served"
-                // But wait, myScore is team score?
-                // If I solve, I contributed.
-                // Let's increment myScore locally too? Or wait for captain? 
-                // For simplified UX, increment locally.
-                // But wait, `verify` calls `setMyScore`.
-                // `sendUpdate` is called by `verify`.
-            }
-            return;
-        }
-
-        // If I am Solo or Captain, send normal UPDATE to Opponent
-        if (connection) {
-            // Note: In Team Mode, Captain's 'connection' is Opponent Captain. 
-            // In Solo, it's Opponent.
-            connection.send({ type: 'UPDATE', payload: { status } });
+        if (socket && activeRoomId) {
+            // Use dedicated event or generic?
+            // Use generic wrapper
+            sendToRoom({ type: 'UPDATE', payload: { status } });
         }
     };
 
+    const joinTeam = (captainHandle: string) => {
+        if (!socket) return;
+        setMode('TEAM');
+        setIsCaptain(false);
+        socket.emit('team_join', captainHandle);
+        setOpponent(captainHandle); // UI treats captain as 'opponent' visual?
+        setState('WAITING');
+    };
+
     return {
-        // ... (existing)
-        peer,
+        peer: null, // Deprecated
         isPeerReady,
         state,
         opponent,
@@ -446,7 +313,6 @@ export function useDuel(myHandle: string) {
         opponentScore,
         setOpponentScore,
 
-        // New Team Props
         mode,
         setMode,
         isCaptain,
@@ -458,55 +324,38 @@ export function useDuel(myHandle: string) {
         acceptChallenge,
         rejectChallenge,
         proposeRating,
-        // ...
         acceptProposal,
         rejectProposal,
-        proposeProblem: (prob: Problem) => {
-            if (connection) connection.send({ type: 'PROPOSE_PROBLEM', payload: { problem: prob } });
-        },
+
+        proposeProblem: (prob: Problem) => sendToRoom({ type: 'PROPOSE_PROBLEM', payload: { problem: prob } }),
         acceptProblem: (prob: Problem) => {
-            if (connection) {
-                connection.send({ type: 'ACCEPT_PROBLEM', payload: { problem: prob } });
-                setProblemQueue(prev => [...prev, prob]);
-                setPendingProblem(null);
-            }
+            sendToRoom({ type: 'ACCEPT_PROBLEM', payload: { problem: prob } });
+            setProblemQueue(prev => [...prev, prob]);
+            setPendingProblem(null);
         },
         rejectProblem: () => {
-            if (connection) {
-                connection.send({ type: 'REJECT_PROBLEM' });
-                setPendingProblem(null);
-            }
+            sendToRoom({ type: 'REJECT_PROBLEM' });
+            setPendingProblem(null);
         },
+
         startMatch: (arg?: Problem | Problem[]) => {
-            // Support both single problem (legacy/solo) and queue
             let finalQueue: Problem[] = [];
+            if (Array.isArray(arg)) finalQueue = arg;
+            else if (arg) finalQueue = [arg];
+            else finalQueue = problemQueue;
 
-            if (Array.isArray(arg)) {
-                finalQueue = arg;
-            } else if (arg) {
-                finalQueue = [arg];
-            } else {
-                finalQueue = problemQueue;
-            }
-
-            if (connection && finalQueue.length > 0) {
+            if (socket && activeRoomId && finalQueue.length > 0) {
                 const stats = JSON.parse(localStorage.getItem('cf_duel_stats_v1') || '{"rating":1200}');
                 const startMsg: DuelMessage = {
                     type: 'START',
                     payload: {
-                        queue: finalQueue, // Send full queue
-                        problem: finalQueue[0], // For legacy compatibility
+                        queue: finalQueue,
+                        problem: finalQueue[0],
                         playerRating: stats.rating
                     }
                 };
 
-                // Send to opponent
-                connection.send(startMsg);
-
-                // Broadcast to Team
-                if (mode === 'TEAM' && isCaptain) {
-                    teamBroadcast(startMsg);
-                }
+                sendToRoom(startMsg);
 
                 setProblemQueue(finalQueue);
                 setCurrentProblemIndex(0);
@@ -515,29 +364,20 @@ export function useDuel(myHandle: string) {
                 setOpponentStatus('idle');
                 setMyScore(0);
                 setOpponentScore(0);
-            } else if (!connection && arg && !Array.isArray(arg)) {
-                // Solo mode fallback (if we want to support it roughly)
-                setProblem(arg);
-                setState('IN_GAME');
             }
         },
+
         nextProblem: () => {
-            // ... existing
-            // If captain, broadcast?
-            if (connection) {
+            if (socket && activeRoomId) {
                 const nextIdx = currentProblemIndex + 1;
                 if (nextIdx < problemQueue.length) {
-                    const payload = { index: nextIdx, queue: problemQueue };
-                    const msg: DuelMessage = { type: 'NEXT_PROBLEM', payload };
-
-                    connection.send(msg);
-                    if (mode === 'TEAM' && isCaptain) {
-                        teamBroadcast(msg);
-                    }
+                    sendToRoom({ type: 'NEXT_PROBLEM', payload: { index: nextIdx, queue: problemQueue } });
                 }
             }
         },
+
         sendUpdate,
         reset
     };
 }
+

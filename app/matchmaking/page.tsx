@@ -5,16 +5,26 @@ import { useRouter } from 'next/navigation';
 import { useMatchmaking } from '@/hooks/useMatchmaking';
 import { useLobbyRegistry } from '@/hooks/useLobbyRegistry';
 import { Loader2, Globe, Users } from 'lucide-react';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useUser } from '@/hooks/useUser';
 
 export default function MatchmakingPage() {
-    const [handle, setHandle] = useState('');
+    return (
+        <ProtectedRoute>
+            <MatchmakingContent />
+        </ProtectedRoute>
+    );
+}
+
+function MatchmakingContent() {
+    const { user } = useUser();
+    const handle = user?.codeforcesHandle || '';
+
     const [active, setActive] = useState(false);
     const router = useRouter();
 
     const { status, startSearch, cleanup, queueCount } = useMatchmaking(handle, (opponent) => {
         // Match found!
-        // We need to pass this opp to the Duel Page.
-        // Simplest way: URL params?
         router.push(`/duel?myHandle=${handle}&opponent=${opponent}&autoChallenge=true`);
     });
 
@@ -22,7 +32,7 @@ export default function MatchmakingPage() {
     useLobbyRegistry(status !== 'IDLE' ? handle : '', 'DUEL_LOBBY');
 
     const handleSearch = () => {
-        if (handle.trim()) {
+        if (handle) {
             setActive(true);
             startSearch();
         }
@@ -43,13 +53,10 @@ export default function MatchmakingPage() {
                     <h1 className="text-4xl font-black mb-4">Global Matchmaking</h1>
                     <p className="text-gray-400 mb-8">Find a worthy opponent instantly.</p>
 
-                    <input
-                        type="text"
-                        placeholder="Enter your Handle"
-                        value={handle}
-                        onChange={e => setHandle(e.target.value)}
-                        className="w-full bg-black/40 border border-gray-700 p-4 rounded-xl text-center text-lg mb-6 focus:border-blue-500 outline-none transition-colors"
-                    />
+                    <div className="bg-black/30 p-4 rounded-xl mb-6">
+                        <p className="text-sm text-gray-400 mb-1">Dueling as</p>
+                        <p className="text-xl font-mono text-white font-bold">{handle}</p>
+                    </div>
 
                     <button
                         onClick={handleSearch}

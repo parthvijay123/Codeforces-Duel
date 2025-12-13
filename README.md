@@ -1,52 +1,106 @@
 # Codeforces Duel ⚔️
 
-A real-time competitive coding platform where you can challenge friends or teams to Codeforces problems. Built with Next.js, PeerJS (WebRTC), and Monaco Editor.
+A modern, real-time competitive coding platform built for speed and collaboration. Codeforces Duel allows developers to challenge friends, form teams, and compete in algorithmic battles using problems directly from Codeforces.
 
-## Features
+## ✨ Features
 
-- **1v1 Duels**: Challenge anyone by their Codeforces handle.
-- **Team Duels**: Form teams, sync progress, and battle other teams.
-- **Real-time Synchronization**: Game state, scores, and problem queue synced via PeerJS.
-- **Integrated IDE**: Read problem statements and write C++ code directly in the app.
-- **No Backend**: Uses peer-to-peer communication; no central database required for matches.
+- **Real-time 1v1 Duels**: Instant matchmaking and direct challenges using Socket.io.
+- **👥 Team Battles**: Comprehensive team system—create squads, join lobbies, and compete member-vs-member or team-vs-team.
+- **🚀 Live Synchronization**: Game state, scores, and problem queues synced instantly across all clients.
+- **💻 Integrated IDE**: Full-featured C++ code editor (Monaco) embedded right in the browser.
+- **🔍 Auto-Verification**: Seamless integration with Codeforces API to verify submissions and update scores in real-time.
+- **🔒 Secure Authentication**: Robust user management with JWT and verified Codeforces handle linking.
+- **📊 Matchmaking System**: Queue up and get paired with opponents of similar skill ratings.
+- **📱 Responsive Design**: Sleek, dark-themed UI built with TailwindCSS for a premium experience on any device.
 
-## Getting Started
+## 🛠️ Tech Stack
+
+### Frontend
+- **Framework**: Next.js 14+ (App Router)
+- **Styling**: TailwindCSS
+- **Editor**: Monaco Editor (VS Code core)
+- **Icons**: Lucide React
+- **Real-time**: Socket.io-client
+- **State**: React Hooks & Context
+
+### Backend
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **Real-time**: Socket.io (Rooms, Namespaces, Events)
+- **Database**: MongoDB (Mongoose)
+- **Auth**: JWT (JSON Web Tokens)
+- **API**: Codeforces Official API
+
+## 🚀 Getting Started
 
 ### Prerequisites
-
-You need **Node.js** installed on your machine.
-- [Download Node.js](https://nodejs.org/) (Version 18+ recommended)
+- Node.js (v18+)
+- MongoDB (Local or Atlas Connection String)
+- A Codeforces Account (for testing verification)
 
 ### Installation
 
-1.  **Download/Clone the code** to your computer.
-2.  Open a terminal (Command Prompt, PowerShell, or Terminal) in the project folder.
-3.  Install dependencies:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/codeforces-duel.git
+   cd codeforces-duel
+   ```
 
-```bash
-npm install
-```
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-### Running the App
+### Configuration
 
-1.  Start the development server:
+1. **Frontend Environment**  
+   Create a `.env.local` file in the root directory:
+   ```env
+   # Backend URL (Socket Server)
+   NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
+   
+   # MongoDB (for Next.js API routes)
+   MONGODB_URI=your_mongodb_connection_string
+   JWT_SECRET=your_jwt_secret
+   ```
 
-```bash
-npm run dev
-```
+2. **Backend Server Setup**  
+   The Socket.IO server lives in the `server/` directory (created during migration).
+   *Note: In production, this runs as a separate service.*
 
-2.  Open your browser and visit: [http://localhost:3000](http://localhost:3000)
+### Running the Application
 
-## How to Play
+1. **Start the Socket.IO Server** (Terminal 1)
+   ```bash
+   node server/server.js
+   ```
+   *Server runs on port 4000 by default.*
 
-1.  **Enter your Codeforces Handle** on the home screen.
-2.  **Lobby**:
-    *   **Solo Mode**: Enter an opponent's handle to challenge them directly.
-    *   **Team Mode**: Create a team (share your handle as the code) or join a captain.
-3.  **Start Match**: Once connected, the host can select difficulty and start the duel.
-4.  **Battle**: Solve problems in the integrated IDE. Click "Verify" to check your submission against Codeforces.
+2. **Start the Next.js Frontend** (Terminal 2)
+   ```bash
+   npm run dev
+   ```
+   *Frontend runs on http://localhost:3000.*
 
-## Troubleshooting
+3. **Visit the App**  
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-- **"Peer Unavailable"**: Ensure both players are on the "Duel Lobby" page and have entered their handles correctly.
-- **"Network Error"**: Codeforces API might be limiting requests. Wait a moment and try again.
+## 📦 Deployment
+
+The application is architected to be deployed as two separate services:
+
+1. **Frontend**: Deploy the Next.js app to **Vercel**.
+   - Add Environment Variable: `NEXT_PUBLIC_SOCKET_URL` pointing to your backend.
+
+2. **Backend**: Deploy the `server/` directory to **Render**, **Railway**, or **Heroku**.
+   - Ensure the service exposes Port 4000 (or configure via `PORT` env var).
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
