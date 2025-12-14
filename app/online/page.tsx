@@ -20,7 +20,7 @@ function OnlineContent() {
     const handle = user?.codeforcesHandle || '';
     const router = useRouter();
 
-    const { onlineUsers, status, isHost, sendInvite, incomingInvite } = useLobbyRegistry(handle, 'ONLINE_PAGE');
+    const { onlineUsers, status, sendInvite, incomingInvite } = useLobbyRegistry(handle, 'ONLINE_PAGE');
 
     const challenge = (opp: string) => {
         router.push(`/duel?myHandle=${handle}&opponent=${opp}&autoChallenge=true`);
@@ -67,8 +67,7 @@ function OnlineContent() {
                         <Users className="text-green-500" /> Online Players
                     </h1>
                     <p className="text-gray-400">
-                        Status: <span className={`font-bold ${status === 'CONNECTED' || status === 'HOSTING' ? 'text-green-400' : 'text-yellow-500'}`}>{status}</span>
-                        {isHost && <span className="ml-2 text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30">HOST NODE</span>}
+                        Status: <span className={`font-bold ${status === 'CONNECTED' ? 'text-green-400' : 'text-yellow-500'}`}>{status}</span>
                     </p>
                     <p className="text-xs text-gray-500 mt-1">Logged in as <span className="text-white font-bold">{handle}</span></p>
                 </div>

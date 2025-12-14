@@ -78,7 +78,7 @@ function MatchmakingContent() {
 
                     <h2 className="text-3xl font-bold mb-2">Searching for Opponent...</h2>
                     <p className="text-gray-400 mb-8">
-                        {status === 'HOSTING' ? `Hosting Match Node (Queue: ${queueCount})` : 'Scanning Network...'}
+                        Scanning Network...
                     </p>
 
                     <button
