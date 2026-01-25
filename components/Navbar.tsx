@@ -4,6 +4,7 @@ import { useUser } from '@/hooks/useUser';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Logo } from './Logo';
 import HandleVerificationModal from './HandleVerificationModal';
 import { useState, useEffect } from 'react';
 
@@ -43,64 +44,67 @@ export function Navbar() {
                 onSuccess={handleVerificationSuccess}
             />
 
-            <nav className="flex items-center justify-between p-4 bg-gray-900 text-white border-b border-gray-800">
-                <div className="flex items-center gap-8">
-                    <Link href="/" className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        Codeforces Duel
+            <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 glass-panel border-b-0 border-b-[var(--color-glass-border)]">
+                <div className="flex items-center gap-10">
+                    <Link href="/" className="flex items-center gap-3 group">
+                        <Logo className="w-8 h-8 transition-transform duration-300 group-hover:scale-110" />
+                        <div className="flex flex-col leading-tight hidden sm:block">
+                            <span className="text-sm font-black tracking-widest text-[#00E5FF]">CODEFORCES</span>
+                            <span className="text-sm font-black tracking-widest text-[#FF4B4B]">DUEL</span>
+                        </div>
                     </Link>
 
-                    <div className="hidden md:flex items-center gap-6">
-                        <Link href="/duel" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                            Start Duel
+                    <div className="hidden md:flex items-center gap-8">
+                        <Link href="/duel" className="text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group">
+                            <span className="text-[#FF4B4B] group-hover:drop-shadow-[0_0_8px_#FF4B4B] transition-all">⚔</span>
+                            Arena
                         </Link>
-                        <Link href="/matchmaking" className="text-sm font-medium text-gray-300 hover:text-white transition-colors flex items-center gap-2">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                            </span>
+                        <Link href="/matchmaking" className="text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group">
+                            <span className="text-[#FFD600] group-hover:drop-shadow-[0_0_8px_#FFD600] transition-all">🏆</span>
                             Matchmaking
                         </Link>
-                        <Link href="/online" className="text-sm font-medium text-gray-300 hover:text-white transition-colors flex items-center gap-2">
-                            <Users className="w-4 h-4 text-green-500" />
-                            Online Players
+                        <Link href="/online" className="text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group">
+                            <Users className="w-4 h-4 text-green-400 group-hover:drop-shadow-[0_0_8px_#4ade80] transition-all" />
+                            Players
                         </Link>
-                        <Link href="/analysis" className="text-sm font-medium text-gray-300 hover:text-white transition-colors flex items-center gap-2">
-                            <span className="text-yellow-500">★</span> My Stats
+                        <Link href="/analysis" className="text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group">
+                            <span className="text-purple-400 group-hover:drop-shadow-[0_0_8px_#c084fc] transition-all">❖</span>
+                            Dashboard
                         </Link>
                     </div>
                 </div>
 
                 <div>
                     {loading ? (
-                        <div className="h-9 w-20 bg-gray-800 rounded animate-pulse"></div>
+                        <div className="h-10 w-24 bg-gray-800 rounded-full animate-pulse"></div>
                     ) : user ? (
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-6">
                             <div className="text-right hidden sm:block">
-                                <div className="text-sm text-gray-200 font-medium">{user.username}</div>
+                                <div className="text-sm text-white font-bold">{user.username}</div>
                                 {user.codeforcesHandle && (
-                                    <div className="text-xs text-green-400">{user.codeforcesHandle}</div>
+                                    <div className="text-xs text-green-400 font-mono tracking-wide">{user.codeforcesHandle}</div>
                                 )}
                             </div>
                             <button
                                 onClick={handleLogout}
-                                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50 px-4 py-2 rounded-lg text-sm transition font-medium"
+                                className="px-5 py-2 rounded-full text-sm font-bold text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
                             >
-                                Logout
+                                Sign Out
                             </button>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-4">
                             <Link
                                 href="/login"
-                                className="text-gray-300 hover:text-white font-medium text-sm px-3 py-2"
+                                className="text-gray-300 hover:text-white font-bold text-sm px-4 py-2 transition-colors"
                             >
-                                Login
+                                Sign In
                             </Link>
                             <Link
                                 href="/signup"
-                                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm transition font-medium text-white shadow-lg shadow-blue-500/20"
+                                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 px-6 py-2.5 rounded-full text-sm font-bold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.7)] transition-all"
                             >
-                                Sign Up
+                                Get Started
                             </Link>
                         </div>
                     )}

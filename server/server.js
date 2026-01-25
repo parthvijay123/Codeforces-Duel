@@ -77,17 +77,22 @@ io.on('connection', (socket) => {
     // Direct Challenge
     socket.on('challenge_request', (data) => {
         // data.targetHandle is the handle of the user to challenge
-        // Find socketId by handle
-        const targetSocketId = Object.keys(onlineUsers).find(
+        // Find all socketIds by handle in case the user has multiple tabs or hooks connected
+        const targetSocketIds = Object.keys(onlineUsers).filter(
             id => onlineUsers[id].handle === data.targetHandle
         );
 
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('challenge_received', {
-                from: onlineUsers[socket.id].handle,
-                fromSocketId: socket.id,
-                rating: data.rating
+        if (targetSocketIds.length > 0) {
+            targetSocketIds.forEach(targetSocketId => {
+                io.to(targetSocketId).emit('challenge_received', {
+                    from: onlineUsers[socket.id]?.handle || 'Unknown',
+                    fromSocketId: socket.id,
+                    rating: data.rating
+                });
             });
+        } else {
+            // Optional: emit back that user was not found
+            socket.emit('challenge_error', { message: 'User not found or offline.' });
         }
     });
 

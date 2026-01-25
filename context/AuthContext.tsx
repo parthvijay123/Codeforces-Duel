@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const refreshUser = () => {
+        setLoading(true);
         setRefreshTrigger(prev => prev + 1);
     };
 

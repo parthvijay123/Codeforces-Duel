@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 export async function GET(req: NextRequest) {
     await dbConnect();
 
-    const token = req.cookies.get('token')?.value;
+    const token = req.cookies.get('auth_token')?.value;
 
     if (!token) {
         return NextResponse.json(

@@ -96,7 +96,7 @@ export default function AnalysisPage() {
 
             <div className="grid md:grid-cols-3 gap-8 mb-12">
                 {/* Chart Card */}
-                <div className="md:col-span-2 bg-gray-900/40 border border-gray-800 rounded-3xl p-8 backdrop-blur-sm">
+                <div className="md:col-span-2 glass-panel rounded-3xl p-8 transition-transform hover:-translate-y-1">
                     <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                         <Trophy className="w-5 h-5 text-yellow-500" /> Rating History
                     </h3>
@@ -124,7 +124,7 @@ export default function AnalysisPage() {
                 </div>
 
                 {/* Topic Stats Card */}
-                <div className="bg-gray-900/40 border border-gray-800 rounded-3xl p-8 backdrop-blur-sm">
+                <div className="glass-panel rounded-3xl p-8 transition-transform hover:-translate-y-1">
                     <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                         <Target className="w-5 h-5 text-green-500" /> Strongest Topics
                     </h3>
@@ -151,7 +151,7 @@ export default function AnalysisPage() {
             </div>
 
             {/* Match History Table */}
-            <div className="bg-gray-900/40 border border-gray-800 rounded-3xl p-8 backdrop-blur-sm">
+            <div className="glass-panel rounded-3xl p-8 transition-transform hover:-translate-y-1">
                 <h3 className="text-xl font-bold mb-6">Recent Matches</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">

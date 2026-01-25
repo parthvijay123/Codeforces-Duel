@@ -194,20 +194,23 @@ function DuelContent() {
     // 1. INCOMING CHALLENGE MODAL
     if (incomingChallenge) {
         return (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm p-4">
-                <div className="bg-gray-900 border border-purple-500/50 p-8 rounded-2xl max-w-md w-full shadow-2xl shadow-purple-500/20 animate-in zoom-in-95 duration-200">
-                    <h3 className="text-2xl font-bold mb-4 text-white flex items-center gap-2">
-                        <Sword className="text-purple-500" /> Challenge Received!
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-md p-4">
+                <div className="glass-panel border-purple-500/30 p-10 rounded-[2rem] max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-6 text-purple-400">
+                        <Sword className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-3xl font-black mb-4 text-white">
+                        Challenge Received!
                     </h3>
-                    <p className="text-gray-300 mb-8 text-lg">
-                        <span className="font-bold text-white bg-gray-800 px-2 py-1 rounded">{incomingChallenge}</span> wants to duel you.
+                    <p className="text-gray-300 mb-8 text-lg font-medium leading-relaxed">
+                        <span className="font-bold text-[#c084fc]">{incomingChallenge}</span> wants to duel you.
                     </p>
                     <div className="flex gap-4">
-                        <button onClick={acceptChallenge} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-all">
-                            Accept Duel
+                        <button onClick={acceptChallenge} className="flex-1 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-[1.02]">
+                            Accept
                         </button>
-                        <button onClick={rejectChallenge} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition-all">
-                            Run Away
+                        <button onClick={rejectChallenge} className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-xl transition-all hover:scale-[1.02]">
+                            Flee
                         </button>
                     </div>
                 </div>
@@ -353,32 +356,36 @@ function DuelContent() {
 
     // 3. LOBBY DASHBOARD
     return (
-        <div className="max-w-4xl mx-auto p-8 w-full">
-            <header className="flex justify-between items-end mb-12 border-b border-gray-800 pb-6">
+        <div className="max-w-6xl mx-auto p-4 md:p-8 w-full mt-10 relative">
+            {/* Background Orbs */}
+            <div className="absolute top-1/4 -right-32 w-96 h-96 bg-purple-500/10 rounded-full blur-[150px] pointer-events-none" />
+            <div className="absolute bottom-0 -left-32 w-96 h-96 bg-blue-500/10 rounded-full blur-[150px] pointer-events-none" />
+
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-white/10 pb-8 z-10 relative">
                 <div>
-                    <h1 className="text-4xl font-extrabold mb-2">Duel Lobby</h1>
-                    <p className="text-gray-400">Connected as <span className="text-white font-mono bg-gray-800 px-2 py-0.5 rounded">{myHandle || 'Unknown'}</span></p>
+                    <h1 className="text-4xl md:text-5xl font-black mb-3 text-white tracking-tight">Arena Lobby</h1>
+                    <p className="text-gray-400 font-medium">Connected as <span className="text-white font-bold tracking-wide">{myHandle || 'Unknown'}</span></p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="mt-6 md:mt-0 flex items-center gap-3 bg-black/40 px-6 py-3 rounded-full border border-white/5">
                     <span className="flex h-3 w-3 relative">
                         {isPeerReady ? (
                             <>
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_10px_#4ade80]"></span>
                             </>
                         ) : (
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500 animate-pulse"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500 animate-pulse shadow-[0_0_10px_#eab308]"></span>
                         )}
                     </span>
-                    <span className={`text-sm font-medium ${isPeerReady ? 'text-green-400' : 'text-yellow-500'}`}>
-                        {isPeerReady ? 'Online' : 'Connecting to Server...'}
+                    <span className={`text-sm font-bold uppercase tracking-widest ${isPeerReady ? 'text-green-400' : 'text-yellow-400'}`}>
+                        {isPeerReady ? 'Online' : 'Connecting...'}
                     </span>
                 </div>
             </header>
 
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid lg:grid-cols-2 gap-8 relative z-10">
                 {/* Challenge / Team Card */}
-                <div className="bg-gray-900/40 border border-gray-800 p-8 rounded-3xl backdrop-blur-sm hover:border-blue-500/30 transition-colors">
+                <div className="glass-panel p-8 rounded-[2rem] hover:border-purple-500/30 transition-all">
                     <div className="flex gap-4 mb-6">
                         <button onClick={() => setMode('SOLO')} className={`flex-1 py-3 rounded-xl font-bold transition-all ${mode === 'SOLO' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>Solo Duel</button>
                         <button onClick={() => setMode('TEAM')} className={`flex-1 py-3 rounded-xl font-bold transition-all ${mode === 'TEAM' ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>Team Duel</button>
@@ -494,17 +501,17 @@ function DuelContent() {
                 </div>
 
                 {/* Match Settings Card */}
-                <div className="bg-gray-900/40 border border-gray-800 p-8 rounded-3xl backdrop-blur-sm">
-                    <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-6 text-purple-400">
-                        <Users className="w-6 h-6" />
+                <div className="glass-panel p-8 rounded-[2rem] hover:border-blue-500/30 transition-all flex flex-col">
+                    <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 text-blue-400 shadow-xl border border-white/5">
+                        <Users className="w-8 h-8" />
                     </div>
-                    <h2 className="text-2xl font-bold mb-4">Waiting Room</h2>
+                    <h2 className="text-3xl font-black mb-8 text-white">Match Setup</h2>
 
                     {state === 'WAITING' ? (
-                        <div className="space-y-6">
-                            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 flex items-center gap-3">
-                                <CheckCircle className="w-5 h-5" />
-                                Connected to <b>{opponent}</b>
+                        <div className="space-y-6 flex-1 flex flex-col">
+                            <div className="p-5 bg-green-500/10 border border-green-500/20 rounded-2xl text-green-400 flex items-center gap-3 font-medium">
+                                <CheckCircle className="w-6 h-6 shrink-0" />
+                                <span>Connected to opponent <b>{opponent}</b></span>
                             </div>
                             {(!matchParams || matchParams.proposer || matchParams.agreed) && (
                                 <div>

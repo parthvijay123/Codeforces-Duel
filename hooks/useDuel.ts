@@ -37,15 +37,19 @@ export function useDuel(myHandle: string) {
     const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
     const [pendingProblem, setPendingProblem] = useState<Problem | null>(null);
 
+    const [targetUser, setTargetUser] = useState<string | null>(null);
+
     const [myScore, setMyScore] = useState(0);
     const [opponentScore, setOpponentScore] = useState(0);
 
     // Refs for closures
     const stateRef = useRef(state);
     const activeRoomIdRef = useRef(activeRoomId);
+    const targetUserRef = useRef(targetUser);
 
     useEffect(() => { stateRef.current = state; }, [state]);
     useEffect(() => { activeRoomIdRef.current = activeRoomId; }, [activeRoomId]);
+    useEffect(() => { targetUserRef.current = targetUser; }, [targetUser]);
 
     const reset = () => {
         if (socket && activeRoomId) {
@@ -58,6 +62,7 @@ export function useDuel(myHandle: string) {
         setIncomingChallengeData(null);
         setOpponent(null);
         setProblem(null);
+        setTargetUser(null);
         setState('LOBBY');
         setOpponentStatus('idle');
         setMatchParams(null);
@@ -95,6 +100,8 @@ export function useDuel(myHandle: string) {
             if (stateRef.current === 'LOBBY' || stateRef.current === 'WAITING') {
                 setIncomingChallenge(data.from);
                 setIncomingChallengeData(data);
+            } else if (stateRef.current === 'CHALLENGING' && targetUserRef.current === data.from) {
+                newSocket.emit('challenge_response', { accepted: true, targetSocketId: data.fromSocketId });
             } else {
                 // Auto-reject if busy
                 newSocket.emit('challenge_response', { accepted: false, targetSocketId: data.fromSocketId });
@@ -231,6 +238,7 @@ export function useDuel(myHandle: string) {
             return;
         }
 
+        setTargetUser(targetHandle);
         setState('CHALLENGING');
         const stats = JSON.parse(localStorage.getItem('cf_duel_stats_v1') || '{"rating":1200}');
         socket.emit('challenge_request', { targetHandle, rating: stats.rating });

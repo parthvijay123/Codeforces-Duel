@@ -5,4 +5,15 @@
   --foreground: #f9fafb;
 }
 
-/* @apply rules moved to layout.tsx to avoid v4 syntax errors with unknown utilities during initial build */
+@theme {
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-glass-bg: rgba(255, 255, 255, 0.03);
+}
+
+.glass-panel {
+  @apply bg-[var(--color-glass-bg)] backdrop-blur-xl border border-[var(--color-glass-border)] shadow-2xl;
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-[#00E5FF] via-[#FFD600] to-[#FF4B4B];
+}

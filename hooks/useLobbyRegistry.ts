@@ -45,13 +45,7 @@ export function useLobbyRegistry(
         });
 
         socket.on('challenge_received', (data: any) => {
-            // If we are in lobby, we might get challenges here if we don't have useDuel active?
-            // But useDuel handles challenges.
-            // If useLobbyRegistry is used on pages WITHOUT useDuel, we might want to show a notif?
-            // For now, useDuel handles it. useLobbyRegistry is just for listing.
-            // But WAIT. The "Invite" feature in current implementation was for "Teaam Invite".
-            // Socket.io 'challenge_received' is for Duel.
-            // We need 'invite_received'?
+            setIncomingInvite(data);
         });
 
         // Custom invite event for teams? 
