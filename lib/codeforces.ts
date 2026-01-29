@@ -77,3 +77,24 @@ export async function checkSubmission(handle: string, contestId: number, index: 
     }
     return false;
 }
+
+// Returns the latest verdict for a specific problem, or null if no submission found.
+// Possible values: 'OK', 'WRONG_ANSWER', 'TIME_LIMIT_EXCEEDED', 'RUNTIME_ERROR', 'MEMORY_LIMIT_EXCEEDED', 'TESTING', 'COMPILATION_ERROR', etc.
+export async function getLatestSubmissionVerdict(handle: string, contestId: number, index: string): Promise<string | null> {
+    try {
+        const res = await fetch(`https://codeforces.com/api/user.status?handle=${handle}&from=1&count=10`, { cache: 'no-store' });
+        const data = await res.json();
+        if (data.status === 'OK') {
+            const submissions = data.result as Submission[];
+            const latest = submissions.find(s =>
+                s.problem.contestId === contestId &&
+                s.problem.index === index
+            );
+            if (latest) return latest.verdict;
+        }
+    } catch (error) {
+        console.error("Error fetching verdict:", error);
+    }
+    return null;
+}
+

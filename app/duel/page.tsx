@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDuel } from '@/hooks/useDuel';
 import { useLobbyRegistry } from '@/hooks/useLobbyRegistry';
-import { getRandomProblem, checkSubmission } from '@/lib/codeforces';
-import { ExternalLink, CheckCircle, XCircle, Play, Loader2, Users, Sword, LogOut } from 'lucide-react';
+import { getRandomProblem, checkSubmission, getLatestSubmissionVerdict } from '@/lib/codeforces';
+import { ExternalLink, CheckCircle, XCircle, Play, Loader2, Users, Sword, LogOut, Terminal, FlaskConical } from 'lucide-react';
 import { GameResultModal } from '@/components/GameResultModal';
 import { recordMatchResult } from '@/lib/rating';
 import { CodeEditor } from '@/components/CodeEditor';
@@ -99,6 +99,18 @@ function DuelContent() {
     const [fetchingProblem, setFetchingProblem] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Test execution state
+    const [samples, setSamples] = useState<{ input: string; output: string }[]>([]);
+    const [executing, setExecuting] = useState(false);
+    const [testResults, setTestResults] = useState<any[] | null>(null);
+    const [execError, setExecError] = useState<string | null>(null);
+    const [samplesPassed, setSamplesPassed] = useState(false);
+
+    // CF AC polling
+    const [isPollingForCF, setIsPollingForCF] = useState(false);
+    const [cfVerdict, setCfVerdict] = useState<string | null>(null);
+    const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
     // Fetch Problem Content when problem changes
     useEffect(() => {
         if (!problem) return;
@@ -106,11 +118,14 @@ function DuelContent() {
         const fetchContent = async () => {
             setFetchingProblem(true);
             setError(null);
+            setTestResults(null);
+            setSamples([]);
             try {
                 const res = await fetch(`/api/codeforces/problem?contestId=${problem.contestId}&index=${problem.index}`);
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
                 if (data.html) setProblemHtml(data.html);
+                if (data.samples && data.samples.length > 0) setSamples(data.samples);
             } catch (e: any) {
                 console.error("Failed to fetch problem content", e);
                 setError(e.message || "Failed to load problem.");
@@ -121,6 +136,11 @@ function DuelContent() {
 
         fetchContent();
         setCode('// Write your solution here\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    // Problem: ' + (problem.name || 'Unknown') + '\n    int t; cin >> t;\n    while(t--) {\n        \n    }\n    return 0;\n}');
+        // Reset submission state when problem changes
+        setSamplesPassed(false);
+        setIsPollingForCF(false);
+        setCfVerdict(null);
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     }, [problem]);
 
     useEffect(() => {
@@ -172,6 +192,73 @@ function DuelContent() {
             setMyScore(prev => prev + 1);
         }
         setChecking(false);
+    };
+
+    // Poll Codeforces for AC verdict
+    useEffect(() => {
+        if (!isPollingForCF || !problem || !myHandle || status === 'solved') return;
+
+        const poll = async () => {
+            try {
+                const verdict = await getLatestSubmissionVerdict(myHandle, problem.contestId, problem.index);
+                if (verdict) {
+                    setCfVerdict(verdict);
+                    if (verdict === 'OK') {
+                        setStatus('solved');
+                        sendUpdate('solved');
+                        setMyScore(prev => prev + 1);
+                        setIsPollingForCF(false);
+                        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    }
+                    // For TESTING/null verdicts, keep polling
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+            }
+        };
+
+        // Poll immediately then every 5 seconds
+        poll();
+        pollIntervalRef.current = setInterval(poll, 5000);
+
+        return () => {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        };
+    }, [isPollingForCF, problem, myHandle, status]);
+
+    const submitToCF = () => {
+        if (!problem) return;
+        const cfUrl = `https://codeforces.com/problemset/submit?submittedProblemCode=${problem.contestId}${problem.index}&programTypeId=73`;
+        window.open(cfUrl, '_blank');
+        setCfVerdict(null); // reset verdict for new submission
+        setIsPollingForCF(true);
+    };
+
+    const executeTests = async () => {
+        if (!code || samples.length === 0) return;
+        setExecuting(true);
+        setExecError(null);
+        setTestResults(null);
+        setSamplesPassed(false);
+        try {
+            const res = await fetch('/api/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, language: 'cpp', samples }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            setTestResults(data.results);
+
+            if (data.allPassed) {
+                // Samples passed — prompt user to submit to CF for real verification
+                setSamplesPassed(true);
+            }
+        } catch (e: any) {
+            setExecError(e.message || 'Execution failed');
+        } finally {
+            setExecuting(false);
+        }
     };
 
     const handleForfeit = () => {
@@ -290,30 +377,132 @@ function DuelContent() {
                         <div className="flex-1 overflow-hidden">
                             <CodeEditor value={code} onChange={(val) => setCode(val || '')} />
                         </div>
-                        <div className="h-16 px-6 border-t border-gray-700 bg-[#252526] flex items-center justify-between">
-                            <div className="text-xs text-gray-400">
-                                {status === 'solved' ? (
-                                    <span className="text-green-400 font-bold flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Solved</span>
-                                ) : status === 'failed' ? (
-                                    <span className="text-red-400 font-bold flex items-center gap-1"><XCircle className="w-3 h-3" /> Failed</span>
-                                ) : "Ready to submit"}
+
+                        {/* Test Results Panel */}
+                        {testResults && (
+                            <div className="border-t border-gray-700 bg-[#1a1a2e] max-h-48 overflow-y-auto">
+                                <div className="px-4 py-2 bg-[#161625] border-b border-gray-700 flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
+                                    <Terminal className="w-3 h-3 text-blue-400" />
+                                    <span className="text-gray-300">Test Results</span>
+                                    <span className={`ml-auto px-2 py-0.5 rounded text-[10px] font-black ${
+                                        testResults.every(r => r.passed)
+                                            ? 'bg-green-500/20 text-green-400'
+                                            : 'bg-red-500/20 text-red-400'
+                                    }`}>
+                                        {testResults.filter(r => r.passed).length}/{testResults.length} PASSED
+                                    </span>
+                                </div>
+                                <div className="divide-y divide-gray-800">
+                                    {testResults.map((r, i) => (
+                                        <div key={i} className={`px-4 py-2 text-xs font-mono ${r.passed ? 'bg-green-500/5' : 'bg-red-500/5'}`}>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                {r.passed
+                                                    ? <CheckCircle className="w-3 h-3 text-green-400 shrink-0" />
+                                                    : <XCircle className="w-3 h-3 text-red-400 shrink-0" />}
+                                                <span className={`font-bold ${r.passed ? 'text-green-400' : 'text-red-400'}`}>Test {i+1}</span>
+                                                <span className="text-gray-500 ml-auto">{r.status} {r.time ? `· ${r.time}s` : ''}</span>
+                                            </div>
+                                            {!r.passed && !r.compile_output && (
+                                                <div className="grid grid-cols-3 gap-2 mt-1 text-[10px]">
+                                                    <div><p className="text-gray-500 mb-0.5">Input</p><pre className="text-gray-300 whitespace-pre-wrap bg-black/30 p-1 rounded">{r.input}</pre></div>
+                                                    <div><p className="text-gray-500 mb-0.5">Expected</p><pre className="text-green-300 whitespace-pre-wrap bg-black/30 p-1 rounded">{r.expected}</pre></div>
+                                                    <div><p className="text-gray-500 mb-0.5">Got</p><pre className="text-red-300 whitespace-pre-wrap bg-black/30 p-1 rounded">{r.got || '(empty)'}</pre></div>
+                                                </div>
+                                            )}
+                                            {r.compile_output && (
+                                                <pre className="text-red-400 text-[10px] mt-1 whitespace-pre-wrap bg-black/30 p-2 rounded">{r.compile_output}</pre>
+                                            )}
+                                            {r.stderr && (
+                                                <pre className="text-yellow-400 text-[10px] mt-1 whitespace-pre-wrap bg-black/30 p-2 rounded">{r.stderr}</pre>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="flex gap-3">
+                        )}
+
+                        {execError && (
+                            <div className="border-t border-gray-700 bg-red-500/10 px-4 py-3 text-xs text-red-400 font-mono">
+                                Error: {execError}
+                            </div>
+                        )}
+
+                        {/* Samples passed → Submit to CF banner */}
+                        {samplesPassed && status !== 'solved' && (
+                            <div className="border-t border-green-500/30 bg-green-500/5 px-4 py-2 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 text-xs flex-wrap">
+                                    <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                                    <span className="text-green-400 font-bold">Samples passed!</span>
+                                    {isPollingForCF ? (
+                                        <span className="flex items-center gap-2 ml-1">
+                                            {cfVerdict && cfVerdict !== 'OK' && cfVerdict !== 'TESTING' ? (
+                                                <span className="text-red-400 font-bold">
+                                                    {cfVerdict.replace(/_/g, ' ')}
+                                                </span>
+                                            ) : cfVerdict === 'TESTING' ? (
+                                                <span className="text-yellow-400 flex items-center gap-1">
+                                                    <Loader2 className="w-3 h-3 animate-spin" /> Judging...
+                                                </span>
+                                            ) : (
+                                                <span className="text-yellow-400 flex items-center gap-1">
+                                                    <Loader2 className="w-3 h-3 animate-spin" /> Watching CF for verdict...
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={submitToCF}
+                                                className="ml-1 px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold rounded transition-colors"
+                                                title="Submit again"
+                                            >
+                                                Re-submit
+                                            </button>
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-400 ml-1">Submit to CF — we'll auto-detect Accepted.</span>
+                                    )}
+                                </div>
+                                {!isPollingForCF && (
+                                    <button
+                                        onClick={submitToCF}
+                                        className="px-4 py-1.5 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white text-xs font-black rounded-lg transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(34,197,94,0.4)] shrink-0"
+                                    >
+                                        <ExternalLink className="w-3 h-3" />
+                                        Submit to CF
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {status === 'solved' && (
+                            <div className="border-t border-green-500/30 bg-green-500/10 px-4 py-2 flex items-center gap-2 text-xs">
+                                <CheckCircle className="w-4 h-4 text-green-400" />
+                                <span className="text-green-400 font-black">Accepted on Codeforces! 🎉 Opponent notified.</span>
+                            </div>
+                        )}
+
+                        <div className="h-14 px-4 border-t border-gray-700 bg-[#252526] flex items-center justify-between gap-3 shrink-0">
+                            <div className="text-xs text-gray-500">
+                                {samples.length > 0 ? (
+                                    <span>{samples.length} sample{samples.length > 1 ? 's' : ''} loaded</span>
+                                ) : 'No samples'}
+                            </div>
+                            <div className="flex gap-2 items-center">
                                 <a
                                     href={`https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
+                                    className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+                                    title="View problem on Codeforces"
                                 >
-                                    <ExternalLink className="w-4 h-4" /> Open CF
+                                    <ExternalLink className="w-4 h-4" />
                                 </a>
                                 <button
-                                    onClick={verify}
-                                    disabled={checking || status === 'solved'}
-                                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={executeTests}
+                                    disabled={executing || samples.length === 0 || status === 'solved'}
+                                    className="px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white text-sm font-bold rounded-lg transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                                    title={samples.length === 0 ? 'No sample tests found' : 'Run against sample test cases'}
                                 >
-                                    {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                                    Verify Submission
+                                    {executing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
+                                    {executing ? 'Running...' : 'Run Tests'}
                                 </button>
                             </div>
                         </div>

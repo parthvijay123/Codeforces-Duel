@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Missing contestId or index" }, { status: 400 });
     }
 
-    const url = `https://codeforces.com/problemset/problem/${contestId}/${index}`;
+    const url = `https://mirror.codeforces.com/problemset/problem/${contestId}/${index}`;
 
     try {
         const res = await fetch(url, {
