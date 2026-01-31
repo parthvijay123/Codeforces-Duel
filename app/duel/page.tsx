@@ -8,6 +8,7 @@ import { ExternalLink, CheckCircle, XCircle, Play, Loader2, Users, Sword, LogOut
 import { GameResultModal } from '@/components/GameResultModal';
 import { recordMatchResult } from '@/lib/rating';
 import { CodeEditor } from '@/components/CodeEditor';
+import { ProblemStatement } from '@/components/ProblemStatement';
 import ProtectedRoute from '@/components/ProtectedRoute'; // Authenticated users only
 import { useUser } from '@/hooks/useUser';
 
@@ -343,20 +344,7 @@ function DuelContent() {
                                 </div>
                             ) : problemHtml ? (
                                 <div className="prose prose-invert prose-sm max-w-none">
-                                    <div dangerouslySetInnerHTML={{ __html: problemHtml }} />
-                                    <style jsx global>{`
-                                         .problem-statement { color: #c9d1d9; }
-                                         .problem-statement .header { margin-bottom: 20px; }
-                                         .problem-statement .title { font-size: 1.5em; font-weight: bold; margin-bottom: 10px; }
-                                         .problem-statement .time-limit, .problem-statement .memory-limit, .problem-statement .input-file, .problem-statement .output-file { font-size: 0.8em; color: #8b949e; }
-                                         .problem-statement p { margin-bottom: 1em; line-height: 1.6; }
-                                         .problem-statement .input-specification, .problem-statement .output-specification, .problem-statement .sample-tests, .problem-statement .note { margin-top: 1.5em; }
-                                         .problem-statement .section-title { font-weight: bold; font-size: 1.1em; marginBottom: 0.5em; color: #58a6ff; }
-                                         .sample-test .input, .sample-test .output { border: 1px solid #30363d; background: #161b22; margin-bottom: 10px; }
-                                         .sample-test pre { padding: 10px; margin: 0; font-family: monospace; white-space: pre-wrap; }
-                                         .tex-font-style-tt { font-family: monospace; background: #21262d; padding: 2px 4px; rounded: 4px; }
-                                         .MathJax_Preview { color: #8b949e; }
-                                     `}</style>
+                                    <ProblemStatement html={problemHtml} />
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8 text-center">
