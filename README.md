@@ -31,6 +31,72 @@ A modern, real-time competitive coding platform built for speed and collaboratio
 - **Auth**: JWT (JSON Web Tokens)
 - **API**: Codeforces Official API
 
+## 📁 Project Structure
+
+```
+codeforces-duel/
+├── app/                          # Next.js App Router (Pages & API)
+│   ├── api/                      # Serverless API Routes (Backend)
+│   │   ├── auth/
+│   │   │   ├── login/            # POST: Validate credentials, issue JWT cookie
+│   │   │   ├── logout/           # POST: Clear auth cookie
+│   │   │   ├── me/               # GET: Validate JWT, return current user
+│   │   │   ├── signup/           # POST: Hash password, generate OTP, send email
+│   │   │   └── verify/           # POST: Validate OTP, mark user verified
+│   │   ├── codeforces/
+│   │   │   └── problem/          # GET: Fetch & scrape problem HTML from CF
+│   │   ├── execute/              # POST: Run C++ code against sample test cases
+│   │   └── verify-handle/
+│   │       ├── challenge/        # POST: Check CF handle exists, return problem
+│   │       └── check/            # POST: Check for recent CF submission to verify ownership
+│   ├── duel/page.tsx             # 🎮 Main game arena (Monaco Editor + Duel Logic)
+│   ├── matchmaking/page.tsx      # 🏆 Ranked queue matchmaking page
+│   ├── online/page.tsx           # 🌐 Online lobby - see & challenge active users
+│   ├── login/page.tsx            # Sign-in page
+│   ├── signup/page.tsx           # Registration + email OTP verification page
+│   ├── analysis/page.tsx         # Post-match stats & rating history
+│   ├── layout.tsx                # Root layout (Navbar, AuthProvider wrapper)
+│   ├── page.tsx                  # Landing page (Hero + Game Mode selector)
+│   └── globals.css               # Global CSS & design tokens
+│
+├── components/                   # Reusable UI Components
+│   ├── CodeEditor.tsx            # Monaco Editor wrapper (VS Code in browser)
+│   ├── Logo.tsx                  # Brand logo component
+│   ├── GameResultModal.tsx       # Win/Loss/Draw popup at end of match
+│   ├── ProblemStatement.tsx      # Renders scraped Codeforces problem HTML
+│   └── ProtectedRoute.tsx        # HOC that redirects unauthenticated users
+│
+├── context/
+│   └── AuthContext.tsx           # Global auth state (user, login, logout)
+│
+├── hooks/                        # Custom React Hooks (Logic Layer)
+│   ├── useDuel.ts                # 🧠 Core duel hook: Socket.io + full game state
+│   ├── useLobbyRegistry.ts       # Tracks online users list from server
+│   └── useUser.ts                # Shorthand hook to get current user from auth
+│
+├── lib/                          # Utility Libraries (Frontend + Backend shared)
+│   ├── codeforces.ts             # CF API wrappers (fetch problems, check submissions)
+│   ├── db.ts                     # MongoDB connection (Singleton pattern)
+│   ├── firebase.ts               # Firebase config (if used for extra features)
+│   ├── mail.ts                   # Nodemailer + Gmail SMTP for OTP emails
+│   ├── rating.ts                 # ELO rating calculation logic
+│   └── utils.ts                  # Generic helper functions
+│
+├── models/
+│   └── User.ts                   # Mongoose schema (handle, email, password, rating)
+│
+├── server/
+│   └── server.js                 # 🔌 Standalone Socket.io server (port 4000)
+│                                 #    Handles: matchmaking, challenges, rooms, relay
+│
+├── public/                       # Static assets (images, icons)
+├── .env                          # Environment variables (NEVER commit this)
+├── next.config.ts                # Next.js configuration
+└── package.json                  # Dependencies & scripts
+```
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
