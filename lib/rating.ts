@@ -19,13 +19,13 @@ export interface UserStats {
     history: MatchRecord[];
 }
 
-const STORAGE_KEY = 'cf_duel_stats_v1';
+const getStorageKey = (handle: string) => `cf_duel_stats_v1_${handle}`;
 const K_FACTOR = 32;
 
-export function getStats(): UserStats {
-    if (typeof window === 'undefined') return { rating: 1200, history: [] };
+export function getStats(handle: string): UserStats {
+    if (typeof window === 'undefined' || !handle) return { rating: 1200, history: [] };
 
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(getStorageKey(handle));
     if (!stored) {
         return { rating: 1200, history: [] };
     }
@@ -36,9 +36,9 @@ export function getStats(): UserStats {
     }
 }
 
-export function saveStats(stats: UserStats) {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+export function saveStats(handle: string, stats: UserStats) {
+    if (typeof window === 'undefined' || !handle) return;
+    localStorage.setItem(getStorageKey(handle), JSON.stringify(stats));
 }
 
 // 1 = Win, 0 = Loss
@@ -49,12 +49,13 @@ export function calculateNewRating(currentRating: number, opponentRating: number
 }
 
 export function recordMatchResult(
+    handle: string,
     opponent: string,
     opponentRating: number,
     problem: MatchRecord['problem'],
     result: 'WIN' | 'LOSS' | 'DRAW'
 ): UserStats {
-    const stats = getStats();
+    const stats = getStats(handle);
     const score = result === 'WIN' ? 1 : result === 'DRAW' ? 0.5 : 0;
     const newRating = calculateNewRating(stats.rating, opponentRating, score);
     const change = newRating - stats.rating;
@@ -74,6 +75,6 @@ export function recordMatchResult(
         history: [record, ...stats.history]
     };
 
-    saveStats(newStats);
+    saveStats(handle, newStats);
     return newStats;
 }

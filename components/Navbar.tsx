@@ -2,7 +2,7 @@
 
 import { useUser } from '@/hooks/useUser';
 import Link from 'next/link';
-import { Users } from 'lucide-react';
+import { Swords, BarChart2, Users, Globe } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Logo } from './Logo';
 import HandleVerificationModal from './HandleVerificationModal';
@@ -24,7 +24,7 @@ export function Navbar() {
     const handleLogout = async () => {
         try {
             await fetch('/api/auth/logout', { method: 'POST' });
-            refreshUser(); // Update state
+            refreshUser();
             router.push('/login');
             router.refresh();
         } catch (error) {
@@ -44,70 +44,115 @@ export function Navbar() {
                 onSuccess={handleVerificationSuccess}
             />
 
-            <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 glass-panel border-b-0 border-b-[var(--color-glass-border)]">
-                <div className="flex items-center gap-10">
-                    <Link href="/" className="flex items-center gap-3 group">
-                        <Logo className="w-8 h-8 transition-transform duration-300 group-hover:scale-110" />
-                        <div className="flex flex-col leading-tight hidden sm:block">
-                            <span className="text-sm font-black tracking-widest text-[#00E5FF]">CODEFORCES</span>
-                            <span className="text-sm font-black tracking-widest text-[#FF4B4B]">DUEL</span>
-                        </div>
-                    </Link>
+            <nav
+                style={{
+                    background: 'rgba(5, 5, 5, 0.7)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    borderBottom: '1px solid var(--border-color)',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 50,
+                }}
+            >
+                <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 32px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
 
-                    <div className="hidden md:flex items-center gap-8">
-                        <Link href="/duel" className="text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group">
-                            <span className="text-[#FF4B4B] group-hover:drop-shadow-[0_0_8px_#FF4B4B] transition-all">⚔</span>
-                            Arena
+                    {/* Left: Logo + Nav links */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '48px' }}>
+                        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none' }}>
+                            <Logo className="w-10 h-10" />
+                            <span style={{ fontFamily: 'var(--font-jakarta), sans-serif', fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                                CF<span style={{ color: '#ccff00' }}>Duel</span>
+                            </span>
                         </Link>
-                        <Link href="/matchmaking" className="text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group">
-                            <span className="text-[#FFD600] group-hover:drop-shadow-[0_0_8px_#FFD600] transition-all">🏆</span>
-                            Matchmaking
-                        </Link>
-                        <Link href="/online" className="text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group">
-                            <Users className="w-4 h-4 text-green-400 group-hover:drop-shadow-[0_0_8px_#4ade80] transition-all" />
-                            Players
-                        </Link>
-                        <Link href="/analysis" className="text-sm font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-2 group">
-                            <span className="text-purple-400 group-hover:drop-shadow-[0_0_8px_#c084fc] transition-all">❖</span>
-                            Dashboard
-                        </Link>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="hidden md:flex">
+                            {[
+                                { href: '/duel', label: 'Arena', icon: <Swords size={18} /> },
+                                { href: '/matchmaking', label: 'Matchmaking', icon: <Globe size={18} /> },
+                                { href: '/online', label: 'Players', icon: <Users size={18} /> },
+                                { href: '/analysis', label: 'Dashboard', icon: <BarChart2 size={18} /> },
+                            ].map(({ href, label, icon }) => (
+                                <Link
+                                    key={href}
+                                    href={href}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '10px 16px',
+                                        borderRadius: '9999px',
+                                        fontSize: '0.95rem',
+                                        fontWeight: 700,
+                                        fontFamily: 'var(--font-jakarta), sans-serif',
+                                        color: '#a1a1aa',
+                                        textDecoration: 'none',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                    onMouseEnter={e => {
+                                        (e.currentTarget as HTMLElement).style.background = 'var(--surface-raised)';
+                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
+                                    }}
+                                    onMouseLeave={e => {
+                                        (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                                    }}
+                                >
+                                    {icon}
+                                    {label}
+                                </Link>
+                            ))}
+                        </div>
                     </div>
-                </div>
 
-                <div>
-                    {loading ? (
-                        <div className="h-10 w-24 bg-gray-800 rounded-full animate-pulse"></div>
-                    ) : user ? (
-                        <div className="flex items-center gap-6">
-                            <div className="text-right hidden sm:block">
-                                <div className="text-sm text-white font-bold">{user.username}</div>
-                                {user.codeforcesHandle && (
-                                    <div className="text-xs text-green-400 font-mono tracking-wide">{user.codeforcesHandle}</div>
-                                )}
+                    {/* Right: Auth */}
+                    <div>
+                        {loading ? (
+                            <div style={{ width: '100px', height: '44px', background: '#18181b', borderRadius: '9999px', animation: 'pulse 1.5s infinite' }} />
+                        ) : user ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                <div className="hidden sm:block" style={{ textAlign: 'right' }}>
+                                    <div style={{ fontFamily: 'var(--font-jakarta), sans-serif', fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{user.username}</div>
+                                    {user.codeforcesHandle && (
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 700 }}>{user.codeforcesHandle}</div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={handleLogout}
+                                    className="btn-ghost"
+                                    style={{ padding: '8px 20px', fontSize: '0.9rem' }}
+                                >
+                                    Sign Out
+                                </button>
                             </div>
-                            <button
-                                onClick={handleLogout}
-                                className="px-5 py-2 rounded-full text-sm font-bold text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-                            >
-                                Sign Out
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-4">
-                            <Link
-                                href="/login"
-                                className="text-gray-300 hover:text-white font-bold text-sm px-4 py-2 transition-colors"
-                            >
-                                Sign In
-                            </Link>
-                            <Link
-                                href="/signup"
-                                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 px-6 py-2.5 rounded-full text-sm font-bold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.7)] transition-all"
-                            >
-                                Get Started
-                            </Link>
-                        </div>
-                    )}
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                <Link
+                                    href="/login"
+                                    style={{
+                                        fontFamily: 'var(--font-jakarta), sans-serif',
+                                        padding: '10px 20px',
+                                        fontSize: '1rem',
+                                        fontWeight: 700,
+                                        color: '#a1a1aa',
+                                        textDecoration: 'none',
+                                        borderRadius: '9999px',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'}
+                                >
+                                    Sign In
+                                </Link>
+                                <Link
+                                    href="/signup"
+                                    className="btn-primary"
+                                >
+                                    Get Started
+                                </Link>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </nav>
         </>

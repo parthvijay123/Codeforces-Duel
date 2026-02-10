@@ -271,7 +271,7 @@ function DuelContent() {
                 url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`,
                 index: problem.index
             };
-            recordMatchResult(opponent, opponentRating, ratingProblem, 'LOSS');
+            recordMatchResult(myHandle, opponent, opponentRating, ratingProblem, 'LOSS');
         }
         reset();
     };
@@ -282,24 +282,20 @@ function DuelContent() {
     // 1. INCOMING CHALLENGE MODAL
     if (incomingChallenge) {
         return (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-md p-4">
-                <div className="glass-panel border-purple-500/30 p-10 rounded-[2rem] max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
-                    <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-6 text-purple-400">
-                        <Sword className="w-8 h-8" />
+            <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:50,padding:'32px',backdropFilter:'blur(8px)'}}>
+                <div className="card" style={{padding:'48px',maxWidth:'440px',width:'100%'}}>
+                    <div style={{width:'64px',height:'64px',background:'var(--accent-dim)',borderRadius:'1rem',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'24px'}}>
+                        <Sword size={32} color="var(--accent)" strokeWidth={2.5} />
                     </div>
-                    <h3 className="text-3xl font-black mb-4 text-white">
-                        Challenge Received!
+                    <h3 style={{fontFamily:'var(--font-jakarta),sans-serif',fontSize:'2rem',fontWeight:800,color:'var(--text-primary)',margin:'0 0 16px 0',letterSpacing:'-0.02em'}}>
+                        Challenge Received
                     </h3>
-                    <p className="text-gray-300 mb-8 text-lg font-medium leading-relaxed">
-                        <span className="font-bold text-[#c084fc]">{incomingChallenge}</span> wants to duel you.
+                    <p style={{fontSize:'1.1rem',color:'var(--text-secondary)',margin:'0 0 32px 0'}}>
+                        <span style={{color:'var(--text-primary)',fontWeight:700}}>{incomingChallenge}</span> wants to duel you.
                     </p>
-                    <div className="flex gap-4">
-                        <button onClick={acceptChallenge} className="flex-1 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-[1.02]">
-                            Accept
-                        </button>
-                        <button onClick={rejectChallenge} className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-xl transition-all hover:scale-[1.02]">
-                            Flee
-                        </button>
+                    <div style={{display:'flex',gap:'16px'}}>
+                        <button onClick={acceptChallenge} className="btn-primary" style={{flex:1,justifyContent:'center',padding:'16px'}}>Accept</button>
+                        <button onClick={rejectChallenge} className="btn-ghost" style={{flex:1,justifyContent:'center',padding:'16px'}}>Decline</button>
                     </div>
                 </div>
             </div>
@@ -308,30 +304,27 @@ function DuelContent() {
 
     // 2. GAME ROOM
     if (state === 'IN_GAME' && problem) {
-        // ... (Same Game Room UI as before, just verify variables are in scope)
-        // I will just copy the Game Room UI block effectively, but I need to make sure I don't miss anything.
-        // For brevity in this full file overwrite, I'll paste the Game Room UI.
         return (
-            <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-[#0d1117]">
-                <div className="h-14 shrink-0 border-b border-gray-800 bg-[#161b22] px-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <span className="font-bold text-gray-200">{problem.contestId}{problem.index} - {problem.name}</span>
-                        <span className="bg-gray-800 text-xs px-2 py-1 rounded text-gray-400">{problem.rating}</span>
+            <div className="flex flex-col h-screen max-h-screen overflow-hidden" style={{background:'var(--bg-color)'}}>
+                <div style={{height:'64px',flexShrink:0,borderBottom:'1px solid var(--border-color)',background:'var(--surface-color)',padding:'0 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
+                        <span style={{fontFamily:'var(--font-jakarta),sans-serif',fontWeight:800,color:'var(--text-primary)',fontSize:'1.1rem'}}>{problem.contestId}{problem.index} — {problem.name}</span>
+                        <span style={{background:'var(--surface-raised)',border:'1px solid var(--border-color)',fontSize:'0.85rem',padding:'4px 10px',borderRadius:'8px',color:'var(--text-secondary)',fontFamily:'monospace',fontWeight:600}}>{problem.rating}</span>
                     </div>
-                    <div className="flex items-center gap-8">
-                        <div className="flex gap-4 text-sm font-mono">
-                            <div className="flex flex-col items-center leading-none">
-                                <span className="text-blue-400 font-bold">{myScore}</span>
-                                <span className="text-[10px] text-gray-500">YOU</span>
+                    <div style={{display:'flex',alignItems:'center',gap:'32px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'16px',fontFamily:'var(--font-jakarta)',fontSize:'1rem'}}>
+                            <div style={{textAlign:'center'}}>
+                                <div style={{fontWeight:800,color:'var(--accent)',fontSize:'1.5rem',lineHeight:1}}>{myScore}</div>
+                                <div style={{fontSize:'10px',color:'var(--text-muted)',letterSpacing:'0.1em',fontWeight:800,marginTop:'4px'}}>YOU</div>
                             </div>
-                            <div className="text-gray-600">:</div>
-                            <div className="flex flex-col items-center leading-none">
-                                <span className="text-red-400 font-bold">{opponentScore}</span>
-                                <span className="text-[10px] text-gray-500">OPP</span>
+                            <div style={{color:'var(--border-color)',fontSize:'1.5rem',fontWeight:800,lineHeight:1}}>:</div>
+                            <div style={{textAlign:'center'}}>
+                                <div style={{fontWeight:800,color:'var(--danger)',fontSize:'1.5rem',lineHeight:1}}>{opponentScore}</div>
+                                <div style={{fontSize:'10px',color:'var(--text-muted)',letterSpacing:'0.1em',fontWeight:800,marginTop:'4px'}}>OPP</div>
                             </div>
                         </div>
-                        <button onClick={handleForfeit} className="text-gray-500 hover:text-red-400 p-1 rounded" title="Forfeit">
-                            <LogOut className="w-4 h-4" />
+                        <button onClick={handleForfeit} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-muted)',padding:'8px',display:'flex',alignItems:'center',transition:'color 0.2s'}} title="Forfeit" onMouseEnter={e => (e.currentTarget as HTMLElement).style.color='var(--danger)'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.color='var(--text-muted)'}>
+                            <LogOut size={20} />
                         </button>
                     </div>
                 </div>
@@ -486,11 +479,12 @@ function DuelContent() {
                                 <button
                                     onClick={executeTests}
                                     disabled={executing || samples.length === 0 || status === 'solved'}
-                                    className="px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white text-sm font-bold rounded-lg transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                                    className="btn-primary"
+                                    style={{fontSize:'0.95rem',padding:'10px 20px'}}
                                     title={samples.length === 0 ? 'No sample tests found' : 'Run against sample test cases'}
                                 >
-                                    {executing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
-                                    {executing ? 'Running...' : 'Run Tests'}
+                                    {executing ? <Loader2 size={16} className="animate-spin" /> : <FlaskConical size={16} />}
+                                    {executing ? 'Running…' : 'Run Tests'}
                                 </button>
                             </div>
                         </div>
@@ -507,21 +501,19 @@ function DuelContent() {
                                 onClose={reset}
                             />
                         ) : (
-                            <div className="bg-gray-900 border border-gray-700 p-8 rounded-2xl max-w-md w-full shadow-2xl text-center">
-                                <h3 className={`text-3xl font-bold mb-4 ${status === 'solved' ? 'text-green-500' : 'text-red-500'}`}>
-                                    {status === 'solved' ? 'Round Won!' : 'Round Lost'}
+                            <div className="card" style={{padding:'48px',maxWidth:'440px',width:'100%',textAlign:'center'}}>
+                                <h3 style={{fontFamily:'var(--font-jakarta),sans-serif',fontSize:'2rem',fontWeight:800,margin:'0 0 16px 0',color: status === 'solved' ? 'var(--accent)' : 'var(--danger)'}}>
+                                    {status === 'solved' ? 'Round Won' : 'Round Lost'}
                                 </h3>
-                                <p className="text-gray-400 mb-8">
+                                <p style={{fontSize:'1.1rem',color:'var(--text-secondary)',margin:'0 0 32px 0'}}>
                                     {status === 'solved' ? 'Great job! Get ready for the next one.' : 'Opponent solved it first.'}
                                 </p>
                                 <button
-                                    onClick={() => {
-                                        setStatus('idle');
-                                        nextProblem();
-                                    }}
-                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
+                                    onClick={() => { setStatus('idle'); nextProblem(); }}
+                                    className="btn-primary"
+                                    style={{width:'100%',justifyContent:'center',padding:'16px'}}
                                 >
-                                    <Play className="w-5 h-5 fill-current" /> Next Problem ({currentProblemIndex + 2}/{problemQueue.length})
+                                    <Play size={20} strokeWidth={2.5} /> Next Problem ({currentProblemIndex + 2}/{problemQueue.length})
                                 </button>
                             </div>
                         )}
@@ -533,63 +525,51 @@ function DuelContent() {
 
     // 3. LOBBY DASHBOARD
     return (
-        <div className="max-w-6xl mx-auto p-4 md:p-8 w-full mt-10 relative">
-            {/* Background Orbs */}
-            <div className="absolute top-1/4 -right-32 w-96 h-96 bg-purple-500/10 rounded-full blur-[150px] pointer-events-none" />
-            <div className="absolute bottom-0 -left-32 w-96 h-96 bg-blue-500/10 rounded-full blur-[150px] pointer-events-none" />
-
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-white/10 pb-8 z-10 relative">
+        <div style={{maxWidth:'1400px',margin:'0 auto',padding:'80px 32px',width:'100%'}}>
+            <header style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'24px',marginBottom:'64px',paddingBottom:'32px',borderBottom:'1px solid var(--border-color)'}}>
                 <div>
-                    <h1 className="text-4xl md:text-5xl font-black mb-3 text-white tracking-tight">Arena Lobby</h1>
-                    <p className="text-gray-400 font-medium">Connected as <span className="text-white font-bold tracking-wide">{myHandle || 'Unknown'}</span></p>
+                    <h1 style={{fontFamily:'var(--font-jakarta),sans-serif',fontSize:'3.5rem',fontWeight:800,color:'var(--text-primary)',letterSpacing:'-0.03em',margin:'0 0 16px 0'}}>Arena Lobby</h1>
+                    <p style={{fontSize:'1.2rem',color:'var(--text-secondary)',margin:0}}>Connected as <span style={{color:'var(--text-primary)',fontWeight:700}}>{myHandle || 'Unknown'}</span></p>
                 </div>
-                <div className="mt-6 md:mt-0 flex items-center gap-3 bg-black/40 px-6 py-3 rounded-full border border-white/5">
-                    <span className="flex h-3 w-3 relative">
-                        {isPeerReady ? (
-                            <>
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_10px_#4ade80]"></span>
-                            </>
-                        ) : (
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500 animate-pulse shadow-[0_0_10px_#eab308]"></span>
-                        )}
-                    </span>
-                    <span className={`text-sm font-bold uppercase tracking-widest ${isPeerReady ? 'text-green-400' : 'text-yellow-400'}`}>
-                        {isPeerReady ? 'Online' : 'Connecting...'}
+                <div style={{display:'flex',alignItems:'center',gap:'12px',background:'var(--surface-color)',border:'1px solid var(--border-color)',padding:'12px 24px',borderRadius:'1rem'}}>
+                    <div style={{width:'12px',height:'12px',borderRadius:'50%',background: isPeerReady ? 'var(--success)' : 'var(--accent)',flexShrink:0,boxShadow: isPeerReady ? '0 0 10px var(--success)' : '0 0 10px var(--accent)'}} />
+                    <span style={{fontFamily:'var(--font-jakarta)',fontSize:'0.9rem',fontWeight:800,color: isPeerReady ? 'var(--success)' : 'var(--accent)',textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                        {isPeerReady ? 'Online' : 'Connecting…'}
                     </span>
                 </div>
             </header>
 
-            <div className="grid lg:grid-cols-2 gap-8 relative z-10">
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(400px,1fr))',gap:'32px'}}>
                 {/* Challenge / Team Card */}
-                <div className="glass-panel p-8 rounded-[2rem] hover:border-purple-500/30 transition-all">
-                    <div className="flex gap-4 mb-6">
-                        <button onClick={() => setMode('SOLO')} className={`flex-1 py-3 rounded-xl font-bold transition-all ${mode === 'SOLO' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>Solo Duel</button>
-                        <button onClick={() => setMode('TEAM')} className={`flex-1 py-3 rounded-xl font-bold transition-all ${mode === 'TEAM' ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>Team Duel</button>
+                <div className="card" style={{padding:'48px'}}>
+                    <div style={{display:'flex',gap:'16px',marginBottom:'40px'}}>
+                        <button onClick={() => setMode('SOLO')} className={mode === 'SOLO' ? 'btn-primary' : 'btn-ghost'} style={{flex:1,justifyContent:'center',padding:'16px'}}>Solo Duel</button>
+                        <button onClick={() => setMode('TEAM')} className={mode === 'TEAM' ? 'btn-primary' : 'btn-ghost'} style={{flex:1,justifyContent:'center',padding:'16px'}}>Team Duel</button>
                     </div>
 
                     {mode === 'SOLO' ? (
                         <>
-                            <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 text-blue-400">
-                                <Sword className="w-6 h-6" />
+                            <div style={{width:'64px',height:'64px',background:'var(--accent-dim)',borderRadius:'1rem',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'24px'}}>
+                                <Sword size={32} color="var(--accent)" strokeWidth={2.5} />
                             </div>
-                            <h2 className="text-2xl font-bold mb-4">Challenge Player</h2>
-                            <p className="text-gray-400 mb-6 text-sm">Enter their exact Codeforces handle. They must be on this page right now.</p>
-                            <div className="space-y-4">
+                            <h2 style={{fontFamily:'var(--font-jakarta),sans-serif',fontSize:'1.75rem',fontWeight:800,color:'var(--text-primary)',margin:'0 0 16px 0',letterSpacing:'-0.02em'}}>Challenge Player</h2>
+                            <p style={{fontSize:'1.1rem',color:'var(--text-secondary)',margin:'0 0 32px 0'}}>Enter their exact Codeforces handle. They must be on this page right now.</p>
+                            <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
                                 <input
                                     type="text"
                                     value={targetHandle}
                                     onChange={(e) => setTargetHandle(e.target.value)}
-                                    className="w-full bg-black/20 border border-gray-700 rounded-xl p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                    placeholder="Opponent's Handle"
+                                    className="form-input"
+                                    placeholder="Opponent's CF Handle"
                                 />
                                 <button
                                     onClick={() => challengeUser(targetHandle)}
                                     disabled={!targetHandle || state === 'CHALLENGING' || !isPeerReady}
-                                    className="w-full bg-white text-black hover:bg-gray-200 font-bold py-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="btn-primary"
+                                    style={{width:'100%',justifyContent:'center',padding:'16px'}}
                                 >
-                                    {state === 'CHALLENGING' ? <Loader2 className="animate-spin w-5 h-5" /> : <Sword className="w-5 h-5" />}
-                                    {state === 'CHALLENGING' ? 'Sending Challenge...' : 'Send Challenge'}
+                                    {state === 'CHALLENGING' ? <Loader2 size={20} className="animate-spin" /> : <Sword size={20} strokeWidth={2.5} />}
+                                    {state === 'CHALLENGING' ? 'Sending Challenge…' : 'Send Challenge'}
                                 </button>
                             </div>
                         </>
@@ -678,11 +658,11 @@ function DuelContent() {
                 </div>
 
                 {/* Match Settings Card */}
-                <div className="glass-panel p-8 rounded-[2rem] hover:border-blue-500/30 transition-all flex flex-col">
-                    <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 text-blue-400 shadow-xl border border-white/5">
-                        <Users className="w-8 h-8" />
+                <div className="card" style={{padding:'48px',display:'flex',flexDirection:'column'}}>
+                    <div style={{width:'64px',height:'64px',background:'var(--surface-raised)',border:'1px solid var(--border-color)',borderRadius:'1rem',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'24px'}}>
+                        <Users size={32} color="var(--text-primary)" strokeWidth={2.5} />
                     </div>
-                    <h2 className="text-3xl font-black mb-8 text-white">Match Setup</h2>
+                    <h2 style={{fontFamily:'var(--font-jakarta),sans-serif',fontSize:'1.75rem',fontWeight:800,color:'var(--text-primary)',margin:'0 0 40px 0',letterSpacing:'-0.02em'}}>Match Setup</h2>
 
                     {state === 'WAITING' ? (
                         <div className="space-y-6 flex-1 flex flex-col">
@@ -715,12 +695,12 @@ function DuelContent() {
                                 </div>
                             )}
                             {!matchParams ? (
-                                <button onClick={() => proposeRating(rating)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2">
+                                <button onClick={() => proposeRating(rating)} className="btn-primary" style={{width:'100%',justifyContent:'center',padding:'16px'}}>
                                     Propose Match ({rating})
                                 </button>
                             ) : matchParams.agreed && matchParams.proposer ? (
-                                <button onClick={findAndStart} disabled={loading} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2 animate-in zoom-in">
-                                    {loading ? <Loader2 className="animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
+                                <button onClick={findAndStart} disabled={loading} className="btn-primary" style={{width:'100%',justifyContent:'center',padding:'16px'}}>
+                                    {loading ? <Loader2 size={20} className="animate-spin" /> : <Play size={20} strokeWidth={2.5} />}
                                     Start Match (Agreed: {matchParams.rating})
                                 </button>
                             ) : matchParams.agreed && !matchParams.proposer ? (
