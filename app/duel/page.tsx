@@ -6,7 +6,7 @@ import { useLobbyRegistry } from '@/hooks/useLobbyRegistry';
 import { getRandomProblem, checkSubmission, getLatestSubmissionVerdict } from '@/lib/codeforces';
 import { ExternalLink, CheckCircle, XCircle, Play, Loader2, Users, Sword, LogOut, Terminal, FlaskConical } from 'lucide-react';
 import { GameResultModal } from '@/components/GameResultModal';
-import { recordMatchResult } from '@/lib/rating';
+import { recordMatchToServer } from '@/lib/rating';
 import { CodeEditor } from '@/components/CodeEditor';
 import { ProblemStatement } from '@/components/ProblemStatement';
 import ProtectedRoute from '@/components/ProtectedRoute'; // Authenticated users only
@@ -23,6 +23,7 @@ export default function DuelPage() {
 function DuelContent() {
     const { user } = useUser();
     const myHandle = user?.codeforcesHandle || '';
+    const myRating = user?.rating || 1200;
 
     // We assume user is registered if they have a handle from auth
     // But hooks shouldn't be conditional.
@@ -69,7 +70,7 @@ function DuelContent() {
         isCaptain,
         setIsCaptain,
         joinTeam
-    } = useDuel(myHandle);
+    } = useDuel(myHandle, myRating);
 
     const { onlineUsers } = useLobbyRegistry(
         myHandle,
@@ -262,16 +263,21 @@ function DuelContent() {
         }
     };
 
-    const handleForfeit = () => {
+    const handleForfeit = async () => {
         if (state === 'IN_GAME' && problem && opponent) {
             const ratingProblem = {
                 name: problem.name,
                 rating: problem.rating || 0,
                 tags: problem.tags,
                 url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`,
-                index: problem.index
+                index: problem.index,
+                contestId: problem.contestId,
             };
-            recordMatchResult(myHandle, opponent, opponentRating, ratingProblem, 'LOSS');
+            try {
+                await recordMatchToServer(opponent, opponentRating, ratingProblem, 'LOSS');
+            } catch (e) {
+                console.error('Failed to record forfeit:', e);
+            }
         }
         reset();
     };

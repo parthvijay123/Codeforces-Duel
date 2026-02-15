@@ -29,6 +29,22 @@ const UserSchema = new mongoose.Schema({
         sparse: true, // Allows null/undefined to not be unique
         trim: true,
     },
+    rating: {
+        type: Number,
+        default: 1200,
+    },
+    wins: {
+        type: Number,
+        default: 0,
+    },
+    losses: {
+        type: Number,
+        default: 0,
+    },
+    draws: {
+        type: Number,
+        default: 0,
+    },
     otp: {
         type: String,
         select: false,

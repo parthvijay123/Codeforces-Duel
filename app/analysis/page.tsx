@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getStats, UserStats } from '@/lib/rating';
+import { fetchMatchHistory, ServerMatchRecord } from '@/lib/rating';
 import { ArrowLeft, TrendingUp, Trophy, Target, AlertTriangle, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
@@ -18,17 +18,32 @@ export default function AnalysisPage() {
 function AnalysisContent() {
     const { user } = useUser();
     const handle = user?.codeforcesHandle || '';
-    const [stats, setStats] = useState<UserStats | null>(null);
+    const userRating = user?.rating || 1200;
+
+    const [matches, setMatches] = useState<ServerMatchRecord[]>([]);
+    const [loadingMatches, setLoadingMatches] = useState(true);
     const [cfTopics, setCfTopics] = useState<{tag: string, total: number, winRate: number}[]>([]);
     const [practiceProblems, setPracticeProblems] = useState<any[]>([]);
     const [loadingCf, setLoadingCf] = useState(false);
 
+    // Fetch match history from server
     useEffect(() => {
-        if (handle) {
-            setStats(getStats(handle));
-        }
+        if (!handle) return;
+        const loadHistory = async () => {
+            setLoadingMatches(true);
+            try {
+                const data = await fetchMatchHistory(1, 100);
+                setMatches(data.matches);
+            } catch (e) {
+                console.error('Failed to fetch match history:', e);
+            } finally {
+                setLoadingMatches(false);
+            }
+        };
+        loadHistory();
     }, [handle]);
 
+    // Fetch Codeforces topic stats
     useEffect(() => {
         if (!handle) return;
         const fetchCFStats = async () => {
@@ -68,7 +83,6 @@ function AnalysisContent() {
                         const probData = await probRes.json();
                         if (probData.status === 'OK') {
                             // Filter problems user hasn't solved (rough heuristic: pick random from matching tag within user's rating + 200)
-                            const userRating = stats?.rating || 1200;
                             const suitable = probData.result.problems.filter((p: any) => p.rating && p.rating >= userRating && p.rating <= userRating + 200);
                             // Pick top 3 random
                             const selected = suitable.sort(() => 0.5 - Math.random()).slice(0, 3);
@@ -83,13 +97,13 @@ function AnalysisContent() {
             }
         };
         fetchCFStats();
-    }, [handle, stats?.rating]);
+    }, [handle, userRating]);
 
-    if (!stats) return <div className="p-20 text-center flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin"/> Loading stats...</div>;
+    if (loadingMatches) return <div className="p-20 text-center flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin"/> Loading stats...</div>;
 
-    // --- Process Duel Data ---
+    // --- Process Duel Data from server matches ---
     const topicStats: { [tag: string]: { total: number; wins: number } } = {};
-    stats.history.forEach(match => {
+    matches.forEach(match => {
         match.problem.tags.forEach(tag => {
             if (!topicStats[tag]) topicStats[tag] = { total: 0, wins: 0 };
             topicStats[tag].total++;
@@ -97,8 +111,6 @@ function AnalysisContent() {
         });
     });
 
-    // Merge duel data if CF data is empty? We can just show CF data as global, and duel data as local.
-    // Or let's just use CF data for strong/weak topics if available!
     const displayTopics = cfTopics.length > 0 ? cfTopics : Object.entries(topicStats)
         .map(([tag, data]) => ({
             tag,
@@ -110,18 +122,11 @@ function AnalysisContent() {
     const strongestTopics = [...displayTopics].sort((a, b) => b.winRate - a.winRate).slice(0, 4);
     const weakestTopics = [...displayTopics].sort((a, b) => a.winRate - b.winRate).slice(0, 4);
 
-    // Rating Chart Data
-    const chronologicHistory = [...stats.history].reverse();
-    const dataPoints = [{ r: 1200, i: 0 }, ...chronologicHistory.map((h, i) => {
-        return { r: 0, i: i + 1, change: h.ratingChange };
+    // Rating Chart Data from server matches (chronological order)
+    const chronologicHistory = [...matches].reverse();
+    const dataPoints = [{ r: chronologicHistory.length > 0 ? chronologicHistory[0].ratingBefore : userRating, i: 0 }, ...chronologicHistory.map((h, i) => {
+        return { r: h.ratingAfter, i: i + 1 };
     })];
-
-    let currentR = 1200;
-    dataPoints.forEach((p, idx) => {
-        if (idx === 0) return;
-        currentR += (p as any).change;
-        p.r = currentR;
-    });
 
     const width = 800;
     const height = 300;
@@ -152,7 +157,10 @@ function AnalysisContent() {
                 </div>
                 <div className="text-right">
                     <p className="text-sm text-gray-500 uppercase font-bold tracking-wider mb-1">Current Rating</p>
-                    <div className="text-5xl font-black text-white">{stats.rating}</div>
+                    <div className="text-5xl font-black text-white">{userRating}</div>
+                    {user && (
+                        <p className="text-xs text-gray-500 mt-1">{user.wins}W / {user.losses}L / {user.draws}D</p>
+                    )}
                 </div>
             </header>
 
@@ -287,7 +295,7 @@ function AnalysisContent() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/50">
-                            {stats.history.map(match => (
+                            {matches.map(match => (
                                 <tr key={match.id} className="group hover:bg-white/5 transition-colors">
                                     <td className="py-4 font-mono text-white">{match.opponent}</td>
                                     <td className="py-4 text-gray-300">
@@ -306,7 +314,7 @@ function AnalysisContent() {
                                     </td>
                                 </tr>
                             ))}
-                            {stats.history.length === 0 && (
+                            {matches.length === 0 && (
                                 <tr>
                                     <td colSpan={4} className="py-8 text-center text-gray-500">No duels recorded yet.</td>
                                 </tr>

@@ -34,7 +34,11 @@ export async function GET(req: NextRequest) {
                     username: user.username,
                     email: user.email,
                     codeforcesHandle: user.codeforcesHandle,
-                    isVerified: user.isVerified
+                    isVerified: user.isVerified,
+                    rating: user.rating || 1200,
+                    wins: user.wins || 0,
+                    losses: user.losses || 0,
+                    draws: user.draws || 0,
                 }
             },
             { status: 200 }

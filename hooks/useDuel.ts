@@ -13,7 +13,7 @@ export interface DuelMessage {
     payload?: any;
 }
 
-export function useDuel(myHandle: string) {
+export function useDuel(myHandle: string, myRating: number = 1200) {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
 
@@ -240,8 +240,7 @@ export function useDuel(myHandle: string) {
 
         setTargetUser(targetHandle);
         setState('CHALLENGING');
-        const stats = JSON.parse(localStorage.getItem('cf_duel_stats_v1') || '{"rating":1200}');
-        socket.emit('challenge_request', { targetHandle, rating: stats.rating });
+        socket.emit('challenge_request', { targetHandle, rating: myRating });
     };
 
     const acceptChallenge = () => {
@@ -353,13 +352,12 @@ export function useDuel(myHandle: string) {
             else finalQueue = problemQueue;
 
             if (socket && activeRoomId && finalQueue.length > 0) {
-                const stats = JSON.parse(localStorage.getItem('cf_duel_stats_v1') || '{"rating":1200}');
                 const startMsg: DuelMessage = {
                     type: 'START',
                     payload: {
                         queue: finalQueue,
                         problem: finalQueue[0],
-                        playerRating: stats.rating
+                        playerRating: myRating
                     }
                 };
 

@@ -7,6 +7,10 @@ export interface User {
     email: string;
     codeforcesHandle?: string;
     isVerified: boolean;
+    rating: number;
+    wins: number;
+    losses: number;
+    draws: number;
 }
 
 interface AuthContextType {

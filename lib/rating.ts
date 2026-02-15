@@ -78,3 +78,84 @@ export function recordMatchResult(
     saveStats(handle, newStats);
     return newStats;
 }
+
+// --- Server-side match recording (persistent) ---
+
+export interface ServerMatchResult {
+    newRating: number;
+    ratingChange: number;
+    match: {
+        id: string;
+        opponent: string;
+        result: string;
+        ratingBefore: number;
+        ratingAfter: number;
+        ratingChange: number;
+        problem: any;
+        createdAt: string;
+    };
+}
+
+export async function recordMatchToServer(
+    opponent: string,
+    opponentRating: number,
+    problem: {
+        name: string;
+        rating: number;
+        tags: string[];
+        url: string;
+        index: string;
+        contestId?: number;
+    },
+    result: 'WIN' | 'LOSS' | 'DRAW'
+): Promise<ServerMatchResult> {
+    const res = await fetch('/api/match/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opponent, opponentRating, problem, result }),
+    });
+
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.message || 'Failed to record match');
+    }
+
+    return res.json();
+}
+
+export interface ServerMatchRecord {
+    id: string;
+    opponent: string;
+    opponentRating: number;
+    problem: {
+        name: string;
+        rating: number;
+        tags: string[];
+        url: string;
+        index: string;
+        contestId: number;
+    };
+    result: 'WIN' | 'LOSS' | 'DRAW';
+    ratingBefore: number;
+    ratingAfter: number;
+    ratingChange: number;
+    createdAt: string;
+}
+
+export async function fetchMatchHistory(page = 1, limit = 50): Promise<{
+    matches: ServerMatchRecord[];
+    total: number;
+    page: number;
+    totalPages: number;
+}> {
+    const res = await fetch(`/api/match/history?page=${page}&limit=${limit}`, {
+        cache: 'no-store',
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch match history');
+    }
+
+    return res.json();
+}
+
