@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Problem } from '@/lib/codeforces';
+import * as Y from 'yjs';
+import { YjsSocketProvider } from '@/lib/yjs-socket-provider';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
@@ -39,6 +41,15 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
 
     const [targetUser, setTargetUser] = useState<string | null>(null);
 
+    // Yjs State
+    const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
+    const [provider, setProvider] = useState<YjsSocketProvider | null>(null);
+    const [sharedCode, setSharedCode] = useState('');
+    const ydocRef = useRef<Y.Doc | null>(null);
+    const providerRef = useRef<YjsSocketProvider | null>(null);
+    const socketRef = useRef<Socket | null>(null);
+
+
     const [myScore, setMyScore] = useState(0);
     const [opponentScore, setOpponentScore] = useState(0);
 
@@ -50,6 +61,7 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
     useEffect(() => { stateRef.current = state; }, [state]);
     useEffect(() => { activeRoomIdRef.current = activeRoomId; }, [activeRoomId]);
     useEffect(() => { targetUserRef.current = targetUser; }, [targetUser]);
+    useEffect(() => { socketRef.current = socket; }, [socket]);
 
     const reset = () => {
         if (socket && activeRoomId) {
@@ -71,6 +83,12 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
         setPendingProblem(null);
         setMyScore(0);
         setOpponentScore(0);
+
+        if (providerRef.current) providerRef.current.destroy();
+        if (ydocRef.current) ydocRef.current.destroy();
+        setYdoc(null);
+        setProvider(null);
+        setSharedCode('');
 
         // Clear team?
         setTeamMembers([]);
@@ -119,6 +137,26 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
 
         newSocket.on('challenge_rejected', (data: any) => {
             alert(`${data.from} rejected your challenge.`);
+            setState('LOBBY');
+        });
+
+        // Team Challenge Events
+        newSocket.on('team_duel_challenge_received', (data: any) => {
+            if (stateRef.current === 'LOBBY' || stateRef.current === 'WAITING') {
+                setIncomingChallenge(data.from);
+                setIncomingChallengeData({ ...data, isTeam: true });
+            }
+        });
+
+        newSocket.on('team_duel_accepted', (data: any) => {
+            setOpponent(data.opponentTeamName || 'Opponent Team');
+            setActiveRoomId(data.roomId);
+            setState('WAITING');
+            newSocket.emit('join_room', data.roomId);
+        });
+
+        newSocket.on('team_duel_rejected', () => {
+            alert('Team challenge rejected.');
             setState('LOBBY');
         });
 
@@ -174,6 +212,44 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
                 setOpponentStatus('idle');
                 setMyScore(0);
                 setOpponentScore(0);
+
+                // Init Yjs if in TEAM mode
+                if (activeRoomIdRef.current) {
+                    // Check if it's a team room based on ID pattern
+                    const isTeamRoom = activeRoomIdRef.current.startsWith('team_duel_');
+                    if (isTeamRoom) {
+                        if (providerRef.current) providerRef.current.destroy();
+                        if (ydocRef.current) ydocRef.current.destroy();
+                        
+                        const doc = new Y.Doc();
+                        const myColor = ['#ccff00', '#f43f5e', '#f97316'][Math.floor(Math.random() * 3)];
+                        const prov = new YjsSocketProvider(doc, socketRef.current!, activeRoomIdRef.current, {
+                            name: myHandle,
+                            color: myColor,
+                        });
+
+                        const ytext = doc.getText('code');
+                        if (ytext.length === 0) {
+                            ytext.insert(0, '// Team collaborative solution\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    int t; cin >> t;\n    while(t--) {\n        \n    }\n    return 0;\n}');
+                        }
+
+                        ytext.observe(() => {
+                            setSharedCode(ytext.toString());
+                        });
+                        setSharedCode(ytext.toString());
+
+                        ydocRef.current = doc;
+                        providerRef.current = prov;
+                        setYdoc(doc);
+                        setProvider(prov);
+                    }
+                }
+
+        if (providerRef.current) providerRef.current.destroy();
+        if (ydocRef.current) ydocRef.current.destroy();
+        setYdoc(null);
+        setProvider(null);
+        setSharedCode('');
                 break;
 
             case 'PROPOSE':
@@ -231,7 +307,7 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
 
 
     // Actions
-    const challengeUser = (targetHandle: string) => {
+    const challengeUser = (targetHandle: string, teamInfo?: any) => {
         if (!socket) return;
         if (targetHandle === myHandle) {
             alert("Cannot challenge self.");
@@ -240,16 +316,35 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
 
         setTargetUser(targetHandle);
         setState('CHALLENGING');
-        socket.emit('challenge_request', { targetHandle, rating: myRating });
+                if (teamInfo) {
+            socket.emit('team_duel_challenge', {
+                targetCaptainHandle: targetHandle,
+                teamId: teamInfo.id,
+                teamName: teamInfo.name,
+                members: teamInfo.members.map((m: any) => m.codeforcesHandle || m.username),
+            });
+        } else {
+            socket.emit('challenge_request', { targetHandle, rating: myRating });
+        }
     };
 
-    const acceptChallenge = () => {
+    const acceptChallenge = (teamInfo?: any) => {
         if (!socket || !incomingChallengeData) return;
 
-        socket.emit('challenge_response', {
-            accepted: true,
-            targetSocketId: incomingChallengeData.fromSocketId
-        });
+        if (incomingChallengeData.isTeam && teamInfo) {
+            socket.emit('team_duel_response', {
+                accepted: true,
+                targetSocketId: incomingChallengeData.fromSocketId,
+                teamName: teamInfo.name,
+                teamId: teamInfo.id,
+                members: teamInfo.members.map((m: any) => m.codeforcesHandle || m.username),
+            });
+        } else {
+            socket.emit('challenge_response', {
+                accepted: true,
+                targetSocketId: incomingChallengeData.fromSocketId
+            });
+        }
         setIncomingChallenge(null);
         setIncomingChallengeData(null);
     };
@@ -303,7 +398,10 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
     };
 
     return {
-        peer: null, // Deprecated
+        ydoc,
+        provider,
+        sharedCode,
+        incomingChallengeData,
         isPeerReady,
         state,
         opponent,
@@ -370,6 +468,12 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
                 setOpponentStatus('idle');
                 setMyScore(0);
                 setOpponentScore(0);
+
+        if (providerRef.current) providerRef.current.destroy();
+        if (ydocRef.current) ydocRef.current.destroy();
+        setYdoc(null);
+        setProvider(null);
+        setSharedCode('');
             }
         },
 
@@ -383,7 +487,8 @@ export function useDuel(myHandle: string, myRating: number = 1200) {
         },
 
         sendUpdate,
-        reset
+        reset,
+        getCode: () => ydocRef.current ? ydocRef.current.getText('code').toString() : sharedCode
     };
 }
 

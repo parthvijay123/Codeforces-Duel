@@ -2,7 +2,7 @@
 
 import { useUser } from '@/hooks/useUser';
 import Link from 'next/link';
-import { Swords, BarChart2, Users, Globe, Trophy } from 'lucide-react';
+import { Swords, BarChart2, Users, Globe, Trophy, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Logo } from './Logo';
 import HandleVerificationModal from './HandleVerificationModal';
@@ -69,6 +69,7 @@ export function Navbar() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="hidden md:flex">
                             {[
                                 { href: '/duel', label: 'Arena', icon: <Swords size={18} /> },
+                                { href: '/teams', label: 'Teams', icon: <Shield size={18} /> },
                                 { href: '/matchmaking', label: 'Matchmaking', icon: <Globe size={18} /> },
                                 { href: '/online', label: 'Players', icon: <Users size={18} /> },
                                 { href: '/leaderboard', label: 'Leaderboard', icon: <Trophy size={18} /> },

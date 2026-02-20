@@ -69,7 +69,12 @@ function DuelContent() {
         setMode,
         isCaptain,
         setIsCaptain,
-        joinTeam
+        joinTeam,
+        ydoc,
+        provider,
+        sharedCode,
+        incomingChallengeData,
+        getCode
     } = useDuel(myHandle, myRating);
 
     const { onlineUsers } = useLobbyRegistry(
@@ -78,6 +83,18 @@ function DuelContent() {
         isCaptain,
         teamMembers.length + 1
     );
+
+    const [myTeams, setMyTeams] = useState<any[]>([]);
+    const [selectedTeam, setSelectedTeam] = useState<any | null>(null);
+
+    useEffect(() => {
+        fetch('/api/teams').then(res => res.json()).then(data => {
+            if (data.teams) {
+                setMyTeams(data.teams);
+                if (data.teams.length > 0) setSelectedTeam(data.teams[0]);
+            }
+        });
+    }, []);
 
     const [targetHandle, setTargetHandle] = useState('');
 
@@ -246,7 +263,7 @@ function DuelContent() {
             const res = await fetch('/api/execute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, language: 'cpp', samples }),
+                body: JSON.stringify({ code: mode === 'TEAM' ? getCode() : code, language: 'cpp', samples }),
             });
             const data = await res.json();
             if (data.error) throw new Error(data.error);
@@ -300,7 +317,7 @@ function DuelContent() {
                         <span style={{color:'var(--text-primary)',fontWeight:700}}>{incomingChallenge}</span> wants to duel you.
                     </p>
                     <div style={{display:'flex',gap:'16px'}}>
-                        <button onClick={acceptChallenge} className="btn-primary" style={{flex:1,justifyContent:'center',padding:'16px'}}>Accept</button>
+                        <button onClick={() => acceptChallenge(selectedTeam)} className="btn-primary" style={{flex:1,justifyContent:'center',padding:'16px'}}>Accept</button>
                         <button onClick={rejectChallenge} className="btn-ghost" style={{flex:1,justifyContent:'center',padding:'16px'}}>Decline</button>
                     </div>
                 </div>
@@ -362,7 +379,14 @@ function DuelContent() {
                     </div>
                     <div className="w-1/2 flex flex-col bg-[#1e1e1e]">
                         <div className="flex-1 overflow-hidden">
-                            <CodeEditor value={code} onChange={(val) => setCode(val || '')} />
+                            <CodeEditor 
+                                value={code} 
+                                onChange={(val) => setCode(val || '')}
+                                collaborative={mode === 'TEAM'}
+                                ydoc={ydoc || undefined}
+                                provider={provider || undefined}
+                                userName={myHandle}
+                            />
                         </div>
 
                         {/* Test Results Panel */}
@@ -582,80 +606,49 @@ function DuelContent() {
                     ) : (
                         <div className="animate-in fade-in slide-in-from-right-4 duration-300">
                             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                                <Users className="w-6 h-6 text-purple-400" /> Team Lobby
+                                <Users className="w-6 h-6 text-purple-400" /> Team Battles
                             </h2>
-                            {!isCaptain && teamMembers.length === 0 && !opponent && state === 'LOBBY' && (
-                                <div className="space-y-4 mb-6">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <button onClick={() => setIsCaptain(true)} className="p-4 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-xl text-left transition-all group">
-                                            <p className="font-bold text-white group-hover:text-purple-400">Create Team</p>
-                                            <p className="text-xs text-gray-500 mt-1">Be the Captain</p>
-                                        </button>
-                                        <button onClick={() => setIsCaptain(false)} className="p-4 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-xl text-left transition-all group">
-                                            <p className="font-bold text-white group-hover:text-purple-400">Join Team</p>
-                                            <p className="text-xs text-gray-500 mt-1">Enter Captain's ID</p>
-                                        </button>
-                                    </div>
+                            {myTeams.length === 0 ? (
+                                <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700">
+                                    <p className="text-gray-400 mb-4">You are not in any teams yet.</p>
+                                    <a href="/teams" className="btn-primary inline-flex">Manage Teams</a>
                                 </div>
-                            )}
-                            {isCaptain && (
+                            ) : (
                                 <div className="space-y-6">
-                                    <div className="bg-purple-500/10 border border-purple-500/20 p-4 rounded-xl">
-                                        <p className="text-xs text-purple-300 uppercase font-bold mb-1">Your Team Code</p>
-                                        <p className="text-2xl font-mono text-white tracking-widest">{myHandle}</p>
-                                        <p className="text-xs text-gray-400 mt-2">Share this handle with your friends to join.</p>
-                                    </div>
                                     <div>
-                                        <p className="text-sm font-bold text-gray-400 mb-2">Team Members ({teamMembers.length})</p>
-                                        <div className="space-y-2">
-                                            {teamMembers.length === 0 ? (
-                                                <p className="text-sm text-gray-600 italic">No members yet. Waiting for joiners...</p>
-                                            ) : (
-                                                teamMembers.map((m, i) => (
-                                                    <div key={i} className="flex items-center gap-2 bg-gray-800/50 p-2 px-3 rounded text-sm">
-                                                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                                        <span className="text-white">{m.handle}</span>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
+                                        <label className="block text-sm font-bold text-gray-400 mb-2">Select Your Team</label>
+                                        <select 
+                                            value={selectedTeam?.id || ''} 
+                                            onChange={(e) => setSelectedTeam(myTeams.find(t => t.id === e.target.value) || null)}
+                                            className="w-full bg-black/20 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                        >
+                                            {myTeams.map((t: any) => <option key={t.id} value={t.id}>{t.name} ({t.members.length}/3)</option>)}
+                                        </select>
                                     </div>
-                                    <div className="border-t border-gray-800 pt-6 mt-6">
-                                        <p className="text-sm font-bold text-gray-300 mb-4">Challenge Opposing Captain</p>
-                                        <div className="mb-6">
-                                            <p className="text-xs text-gray-500 mb-2 uppercase font-semibold">Ready Teams</p>
-                                            <div className="max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                                                {onlineUsers.filter(u => u.isCaptain && u.handle !== myHandle).length === 0 ? (
-                                                    <p className="text-xs text-gray-600 italic">No other teams online.</p>
-                                                ) : (
-                                                    onlineUsers.filter(u => u.isCaptain && u.handle !== myHandle).map(team => (
-                                                        <div key={team.handle} className="flex justify-between items-center bg-gray-800/60 p-3 rounded-lg border border-gray-700 hover:border-purple-500/50 transition-colors">
-                                                            <div>
-                                                                <p className="text-white font-bold">{team.handle}</p>
-                                                                <p className="text-xs text-gray-400">Team Size: {team.teamSize || 1}</p>
-                                                            </div>
-                                                            <button onClick={() => setTargetHandle(team.handle)} className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded transition-colors">Select</button>
-                                                        </div>
-                                                    ))
-                                                )}
+                                    
+                                    {selectedTeam && (
+                                        <div className="bg-purple-500/10 border border-purple-500/20 p-4 rounded-xl">
+                                            <p className="text-sm font-bold text-purple-300 mb-2">Team Members</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedTeam.members.map((m: any, i: number) => (
+                                                    <div key={i} className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-full text-sm">
+                                                        <span className="w-2 h-2 rounded-full" style={{background: ['#ccff00', '#f43f5e', '#f97316'][i]}}></span>
+                                                        <span className="text-white font-medium">{m.codeforcesHandle || m.username}</span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
+                                    )}
+                                    
+                                    <div className="border-t border-gray-800 pt-6 mt-6">
+                                        <p className="text-sm font-bold text-gray-300 mb-4">Challenge Opposing Captain</p>
                                         <div className="space-y-4">
                                             <input type="text" value={targetHandle} onChange={(e) => setTargetHandle(e.target.value)} className="w-full bg-black/20 border border-gray-700 rounded-xl p-4 text-white focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="Opponent Captain's Handle" />
-                                            <button onClick={() => challengeUser(targetHandle)} disabled={!targetHandle || state === 'CHALLENGING' || !isPeerReady} className="w-full bg-purple-600 text-white hover:bg-purple-500 font-bold py-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20">
+                                            <button onClick={() => challengeUser(targetHandle, selectedTeam)} disabled={!targetHandle || state === 'CHALLENGING'} className="w-full bg-purple-600 text-white hover:bg-purple-500 font-bold py-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
                                                 {state === 'CHALLENGING' ? <Loader2 className="animate-spin w-5 h-5" /> : <Sword className="w-5 h-5" />}
-                                                {state === 'CHALLENGING' ? 'Challenging Captain...' : 'Challenge Team'}
+                                                {state === 'CHALLENGING' ? 'Challenging...' : 'Send Team Challenge'}
                                             </button>
                                         </div>
-                                    </div>
-                                </div>
-                            )}
-                            {!isCaptain && (
-                                <div className="space-y-4">
-                                    <div className="p-4 bg-gray-800 rounded-xl border border-gray-700">
-                                        <p className="text-sm text-gray-400 mb-4">Enter the Captain's code (their handle) to join their lobby.</p>
-                                        <input type="text" value={targetHandle} onChange={(e) => setTargetHandle(e.target.value)} className="w-full bg-black/20 border border-gray-700 rounded-xl p-4 text-white focus:ring-2 focus:ring-purple-500 outline-none transition-all mb-4" placeholder="Captain's Handle" />
-                                        <button onClick={() => joinTeam(targetHandle)} disabled={!targetHandle || !isPeerReady} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition-all">Join Team Lobby</button>
                                     </div>
                                 </div>
                             )}

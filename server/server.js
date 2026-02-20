@@ -11,13 +11,15 @@ const io = new Server(server, {
     cors: {
         origin: "*", // Allow all origins for now, configure for production
         methods: ["GET", "POST"]
-    }
+    },
+    maxHttpBufferSize: 1e6, // 1MB for Yjs updates
 });
 
 // State
 let onlineUsers = {}; // socketId -> { handle, location, ... }
 let matchmakingQueue = []; // [{ handle, socketId, rating }]
 let activeDuels = {}; // roomId -> { players: [id1, id2], state... }
+let teams = {}; // captainHandle -> { members: [{ handle, socketId }], teamRoom }
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -40,10 +42,22 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+        const userInfo = onlineUsers[socket.id];
         delete onlineUsers[socket.id];
 
         // Remove from queue
         matchmakingQueue = matchmakingQueue.filter(u => u.socketId !== socket.id);
+
+        // Clean up team membership
+        if (userInfo && userInfo.handle) {
+            Object.keys(teams).forEach(captainHandle => {
+                const team = teams[captainHandle];
+                team.members = team.members.filter(m => m.socketId !== socket.id);
+                if (team.members.length === 0) {
+                    delete teams[captainHandle];
+                }
+            });
+        }
 
         io.emit('users_online', Object.values(onlineUsers));
     });
@@ -76,8 +90,6 @@ io.on('connection', (socket) => {
     // --- DUEL & CHALLENGES ---
     // Direct Challenge
     socket.on('challenge_request', (data) => {
-        // data.targetHandle is the handle of the user to challenge
-        // Find all socketIds by handle in case the user has multiple tabs or hooks connected
         const targetSocketIds = Object.keys(onlineUsers).filter(
             id => onlineUsers[id].handle === data.targetHandle
         );
@@ -91,13 +103,11 @@ io.on('connection', (socket) => {
                 });
             });
         } else {
-            // Optional: emit back that user was not found
             socket.emit('challenge_error', { message: 'User not found or offline.' });
         }
     });
 
     socket.on('challenge_response', (data) => {
-        // data: { accepted: boolean, targetSocketId: string }
         if (data.accepted) {
             const roomId = `duel_${socket.id}_${data.targetSocketId}`;
             io.to(data.targetSocketId).emit('challenge_accepted', { roomId, opponent: onlineUsers[socket.id].handle });
@@ -113,18 +123,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('game_start', (data) => {
-        // data: { roomId, problems, ... }
         socket.to(data.roomId).emit('game_started', data);
     });
 
     socket.on('game_update', (data) => {
-        // data: { roomId, type: 'solved' | 'failed', ... }
         socket.to(data.roomId).emit('opponent_update', data);
     });
 
-    // Team Logic
+    // --- TEAM LOGIC ---
     socket.on('team_join', (captainHandle) => {
-        // Find captain's socket
         const captainId = Object.keys(onlineUsers).find(
             id => onlineUsers[id].handle === captainHandle
         );
@@ -132,22 +139,96 @@ io.on('connection', (socket) => {
             const teamRoom = `team_${captainId}`;
             socket.join(teamRoom);
 
-            // If captain is not in their own room yet?
-            // Ideally captain joins it on creation.
-            // But valid socket.io: we can just join.
+            // Track team membership
+            if (!teams[captainHandle]) {
+                teams[captainHandle] = { members: [], teamRoom };
+            }
+            const myHandle = onlineUsers[socket.id]?.handle || 'Unknown';
+            if (!teams[captainHandle].members.find(m => m.handle === myHandle)) {
+                teams[captainHandle].members.push({ handle: myHandle, socketId: socket.id });
+            }
 
-            // Notify captain?
             io.to(captainId).emit('team_member_joined', {
-                handle: onlineUsers[socket.id].handle,
+                handle: myHandle,
                 socketId: socket.id
+            });
+        }
+    });
+
+    // Team Duel Challenge (captain to captain)
+    socket.on('team_duel_challenge', (data) => {
+        // data: { targetCaptainHandle, teamId, teamName, members }
+        const targetSocketIds = Object.keys(onlineUsers).filter(
+            id => onlineUsers[id].handle === data.targetCaptainHandle
+        );
+
+        if (targetSocketIds.length > 0) {
+            targetSocketIds.forEach(targetSocketId => {
+                io.to(targetSocketId).emit('team_duel_challenge_received', {
+                    from: onlineUsers[socket.id]?.handle || 'Unknown',
+                    fromSocketId: socket.id,
+                    teamName: data.teamName,
+                    teamId: data.teamId,
+                    members: data.members,
+                });
+            });
+        } else {
+            socket.emit('challenge_error', { message: 'Captain not found or offline.' });
+        }
+    });
+
+    socket.on('team_duel_response', (data) => {
+        // data: { accepted, targetSocketId, teamName, teamId, members }
+        if (data.accepted) {
+            const roomId = `team_duel_${socket.id}_${data.targetSocketId}`;
+            
+            // Notify both captains
+            io.to(data.targetSocketId).emit('team_duel_accepted', {
+                roomId,
+                opponentTeamName: data.teamName,
+                opponentMembers: data.members,
+            });
+            socket.emit('team_duel_accepted', {
+                roomId,
+                opponentTeamName: onlineUsers[data.targetSocketId]?.teamName || 'Unknown',
+                opponentMembers: [],
+            });
+        } else {
+            io.to(data.targetSocketId).emit('team_duel_rejected', {
+                from: onlineUsers[socket.id]?.handle || 'Unknown',
             });
         }
     });
 
     socket.on('team_broadcast', (data) => {
         // data: { teamId, message }
-        // socket.to(data.teamId).emit('team_message', data.message);
-        // Basically relay everything.
+        // Relay to everyone in the team room
+        if (data.roomId) {
+            socket.to(data.roomId).emit('team_broadcast', data);
+        }
+    });
+
+    // --- YJS DOCUMENT RELAY ---
+    // Pure relay — no state stored on server. Yjs CRDTs handle merge logic.
+    socket.on('yjs_join', (data) => {
+        if (data.roomId) {
+            socket.join(`yjs_${data.roomId}`);
+            console.log(`Socket ${socket.id} joined Yjs room: yjs_${data.roomId}`);
+        }
+    });
+
+    socket.on('yjs_update', (data) => {
+        // data: { roomId, update: number[] }
+        if (data.roomId) {
+            socket.to(`yjs_${data.roomId}`).emit('yjs_update', { update: data.update });
+        }
+    });
+
+    socket.on('yjs_awareness', (data) => {
+        // data: { roomId, update: number[] }
+        if (data.roomId) {
+            socket.to(`yjs_${data.roomId}`).emit('yjs_awareness', { update: data.update });
+        }
     });
 
     // Generic Relay for signaling within a room

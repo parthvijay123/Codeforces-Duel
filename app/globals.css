@@ -214,6 +214,10 @@ h1, h2, h3, h4, h5, h6 {
   border-color: var(--border-color);
 }
 
+.badge-purple {
+  @apply bg-purple-500/10 text-purple-400 border border-purple-500/20;
+}
+
 .badge-red {
   color: var(--danger);
   background: rgba(244, 63, 94, 0.1);
